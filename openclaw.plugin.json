@@ -1,0 +1,30 @@
+{
+  "id": "native-scheduler",
+  "name": "Native Scheduler",
+  "description": "Cross-platform native scheduler plugin for OpenClaw.",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "defaultBackend": {
+        "type": "string",
+        "enum": ["auto", "cron", "launchd", "systemd", "windows-task-scheduler"],
+        "default": "auto"
+      },
+      "namespace": {
+        "type": "string"
+      }
+    }
+  },
+  "uiHints": {
+    "defaultBackend": {
+      "label": "Default Backend",
+      "help": "Scheduler backend to prefer. 'auto' chooses based on platform."
+    },
+    "namespace": {
+      "label": "Job Namespace",
+      "help": "Optional prefix used when naming managed scheduler jobs."
+    }
+  }
+}

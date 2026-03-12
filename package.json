@@ -1,0 +1,59 @@
+{
+  "name": "openclaw-native-scheduler-plugin",
+  "version": "0.1.0",
+  "description": "Cross-platform native scheduler plugin for OpenClaw",
+  "keywords": [
+    "cron",
+    "launchd",
+    "openclaw",
+    "plugin",
+    "scheduler",
+    "systemd",
+    "windows-task-scheduler"
+  ],
+  "homepage": "https://github.com/spectra-the-bot/native-scheduler-plugin",
+  "bugs": {
+    "url": "https://github.com/spectra-the-bot/native-scheduler-plugin/issues"
+  },
+  "license": "MIT",
+  "author": "spectra",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/spectra-the-bot/native-scheduler-plugin.git"
+  },
+  "files": [
+    "index.ts",
+    "src",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "type": "module",
+  "scripts": {
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm format:check && pnpm typecheck"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.41"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "openclaw": "^2026.3.11",
+    "oxfmt": "^0.40.0",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.30.3",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "install": {
+      "npmSpec": "openclaw-native-scheduler-plugin",
+      "defaultChoice": "npm"
+    }
+  }
+}
