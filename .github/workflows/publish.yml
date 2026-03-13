@@ -29,19 +29,19 @@ jobs:
         run: pnpm -r typecheck
 
       - name: Publish @spectratools/native-scheduler-types
-        run: pnpm publish --no-git-checks --access public
+        run: pnpm publish --no-git-checks --access public --if-not-exists
         working-directory: packages/native-scheduler-types
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish @spectratools/native-scheduler-plugin
-        run: pnpm publish --no-git-checks --access public
+      - name: Publish @spectratools/native-scheduler
+        run: pnpm publish --no-git-checks --access public --if-not-exists
         working-directory: packages/native-scheduler-plugin
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @spectratools/sentinel-plugin
-        run: pnpm publish --no-git-checks --access public
+        run: pnpm publish --no-git-checks --access public --if-not-exists
         working-directory: packages/sentinel-plugin
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
