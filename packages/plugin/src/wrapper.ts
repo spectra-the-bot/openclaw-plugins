@@ -111,6 +111,16 @@ function runCommand(command, options = {}) {
     });
 
     let stdout = "";
+    let settled = false;
+
+    const timeoutMs = options.timeoutMs ?? 20_000;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        child.kill("SIGKILL");
+        resolve({ code: 1, signal: "SIGKILL", stdout, spawnError: "command timed out" });
+      }
+    }, timeoutMs);
 
     if (options.stdinData != null) {
       child.stdin.write(options.stdinData);
@@ -124,11 +134,19 @@ function runCommand(command, options = {}) {
     }
 
     child.on("error", (error) => {
-      resolve({ code: 127, signal: null, stdout, spawnError: error instanceof Error ? error.message : String(error) });
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve({ code: 127, signal: null, stdout, spawnError: error instanceof Error ? error.message : String(error) });
+      }
     });
 
     child.on("close", (code, signal) => {
-      resolve({ code: code ?? 1, signal, stdout, spawnError: undefined });
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve({ code: code ?? 1, signal, stdout, spawnError: undefined });
+      }
     });
   });
 }
