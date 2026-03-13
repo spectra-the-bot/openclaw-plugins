@@ -40,7 +40,28 @@ export async function saveState(
     JSON.stringify({ watchers, runtime, updatedAt: new Date().toISOString() }, null, 2),
     { mode: 0o600 },
   );
-  await fs.rename(tmpPath, filePath);
+  try {
+    await fs.rename(tmpPath, filePath);
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException;
+    if (e.code === "EPERM" || e.code === "EEXIST") {
+      // Windows: rename over existing file not permitted — remove dest first
+      try {
+        await fs.unlink(filePath);
+      } catch {
+        /* ignore if doesn't exist */
+      }
+      await fs.rename(tmpPath, filePath);
+    } else {
+      // Clean up tmp file and re-throw
+      try {
+        await fs.unlink(tmpPath);
+      } catch {
+        /* ignore */
+      }
+      throw err;
+    }
+  }
 }
 
 export function mergeState(
