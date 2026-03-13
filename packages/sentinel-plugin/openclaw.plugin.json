@@ -1,5 +1,8 @@
 {
   "id": "sentinel",
+  "name": "OpenClaw Sentinel",
+  "description": "Secure declarative gateway-native watcher plugin for OpenClaw",
+  "version": "0.9.1",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -101,6 +104,10 @@
         "minimum": 0,
         "description": "Deduplicate hook response-delivery contracts by dedupe key within this window (milliseconds)",
         "default": 120000
+      },
+      "defaultHookModel": {
+        "type": "string",
+        "description": "Default LLM model for all sentinel hook sessions (provider/model format, e.g. 'anthropic/claude-sonnet-4-20250514'). Per-watcher fire.model takes precedence."
       }
     }
   },
@@ -188,6 +195,12 @@
       "label": "Hook Response Dedupe Window (ms)",
       "help": "Deduplicate hook-response delivery contracts by dedupe key within this window",
       "advanced": true
+    },
+    "defaultHookModel": {
+      "label": "Default Hook Model",
+      "help": "Default LLM model for sentinel hook sessions. Per-watcher fire.model takes precedence. Format: provider/model (e.g. anthropic/claude-sonnet-4-20250514)",
+      "advanced": true,
+      "placeholder": "anthropic/claude-sonnet-4-20250514"
     }
   },
   "install": {
