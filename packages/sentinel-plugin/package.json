@@ -1,0 +1,56 @@
+{
+  "name": "@spectratools/sentinel-plugin",
+  "version": "0.7.0",
+  "description": "Secure declarative gateway-native watcher plugin for OpenClaw",
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "security",
+    "sentinel",
+    "watcher"
+  ],
+  "homepage": "https://github.com/spectra-the-bot/openclaw-plugins",
+  "bugs": {
+    "url": "https://github.com/spectra-the-bot/openclaw-plugins/issues"
+  },
+  "license": "MIT",
+  "author": "spectra",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/spectra-the-bot/openclaw-plugins.git"
+  },
+  "files": [
+    "src",
+    "schema",
+    "openclaw.plugin.json"
+  ],
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.unit.config.ts",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48",
+    "ox": "^0.6.0",
+    "re2-wasm": "^1.0.2",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.5.13",
+    "ajv": "^8.17.1",
+    "openclaw": "latest",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.3.2"
+  },
+  "optionalDependencies": {
+    "re2": "^1.23.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
