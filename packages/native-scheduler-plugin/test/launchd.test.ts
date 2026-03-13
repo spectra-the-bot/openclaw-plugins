@@ -57,9 +57,7 @@ describe("launchd helpers", () => {
     const plist = renderPlist("dev.test.job", job);
     expect(plist).toContain("<key>EnvironmentVariables</key>");
     expect(plist).toContain("<key>PATH</key>");
-    expect(plist).toContain(
-      "<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>",
-    );
+    expect(plist).toContain("<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>");
   });
 
   it("omits EnvironmentVariables when environment is undefined", () => {
@@ -199,9 +197,7 @@ describeOnMac("createLaunchdAdapter", () => {
     const plistContent = files.get(plistPath)!;
     expect(plistContent).toContain("<key>EnvironmentVariables</key>");
     expect(plistContent).toContain("<key>PATH</key>");
-    expect(plistContent).toContain(
-      "<string>/opt/homebrew/bin:/usr/bin:/bin</string>",
-    );
+    expect(plistContent).toContain("<string>/opt/homebrew/bin:/usr/bin:/bin</string>");
   });
 
   it("omits EnvironmentVariables from plist when no environment is set", async () => {
@@ -286,11 +282,7 @@ describe("resolveUserPath", () => {
 
     const result = await resolveUserPath({ execProbe, shell: "/bin/zsh" });
     expect(result).toBe(mockPath);
-    expect(execProbe).toHaveBeenCalledWith(
-      "/bin/zsh",
-      ["-l", "-c", 'printf "%s" "$PATH"'],
-      3_000,
-    );
+    expect(execProbe).toHaveBeenCalledWith("/bin/zsh", ["-l", "-c", 'printf "%s" "$PATH"'], 3_000);
   });
 
   it("returns FALLBACK_PATH when probe exits non-zero", async () => {

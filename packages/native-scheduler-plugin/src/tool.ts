@@ -576,9 +576,7 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
       let resolvedPath: string | undefined;
       if (backend === "launchd" && !job.environment?.PATH) {
         resolvedPath = await resolveUserPath();
-        api.logger?.info?.(
-          `[native-scheduler] auto-resolved login-shell PATH for job "${job.id}"`,
-        );
+        api.logger?.info?.(`[native-scheduler] auto-resolved login-shell PATH for job "${job.id}"`);
       }
 
       // Inject resolved PATH into wrapper config so child processes inherit it
