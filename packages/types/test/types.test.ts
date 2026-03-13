@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  isRunContext,
-  isResult,
-  parseResult,
-  assertRunContext,
   assertResult,
+  assertRunContext,
   buildRunContext,
-  type NativeSchedulerRunContext,
+  isResult,
+  isRunContext,
   type NativeSchedulerResult,
+  type NativeSchedulerRunContext,
+  parseResult,
 } from "../src/index.js";
 
 const validContext: NativeSchedulerRunContext = {

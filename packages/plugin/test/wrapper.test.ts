@@ -1,9 +1,9 @@
+import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
-import { readJsonIfExists, type JobHealth, type JobRunStatus } from "../src/status.js";
+import { type JobHealth, type JobRunStatus, readJsonIfExists } from "../src/status.js";
 import { materializeWrapperJob } from "../src/wrapper.js";
 
 const tempDirs: string[] = [];

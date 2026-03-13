@@ -2,14 +2,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "format": "oxfmt .",
-    "format:check": "oxfmt --check .",
+    "format": "biome format --write .",
+    "format:check": "biome format --diagnostic-level=error .",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "check": "pnpm format:check && pnpm typecheck && pnpm test"
+    "check": "biome check . && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "oxfmt": "^0.40.0"
+    "@biomejs/biome": "^2.4.6"
   },
   "engines": {
     "node": ">=22"

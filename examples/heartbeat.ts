@@ -6,8 +6,8 @@
  * Output: NativeSchedulerResult as JSON on stdout.
  */
 import type {
-  NativeSchedulerRunContext,
   NativeSchedulerResult,
+  NativeSchedulerRunContext,
 } from "@spectratools/native-scheduler-types";
 
 async function main() {

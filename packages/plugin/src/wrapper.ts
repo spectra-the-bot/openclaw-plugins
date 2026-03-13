@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { NativeSchedulerResult } from "@spectratools/native-scheduler-types";
-import { resolveJobPaths, type JobPaths } from "./status.js";
+import { type JobPaths, resolveJobPaths } from "./status.js";
 
 export type FailureCallbackTarget =
   | {

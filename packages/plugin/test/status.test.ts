@@ -4,11 +4,11 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   appendRun,
+  type JobRunStatus,
   listFailureRuns,
   nextHealth,
   readJsonIfExists,
   resolveJobPaths,
-  type JobRunStatus,
 } from "../src/status.js";
 
 const tempDirs: string[] = [];

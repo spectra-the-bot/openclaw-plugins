@@ -7,8 +7,8 @@
  */
 import { execSync } from "node:child_process";
 import type {
-  NativeSchedulerRunContext,
   NativeSchedulerResult,
+  NativeSchedulerRunContext,
 } from "@spectratools/native-scheduler-types";
 
 const THRESHOLD_PERCENT = 90;

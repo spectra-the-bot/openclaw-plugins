@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildLabel,
   createLaunchdAdapter,
+  type LaunchdJobInput,
   renderPlist,
   sanitizeSegment,
-  type LaunchdJobInput,
 } from "../src/launchd.js";
 
 function dirent(name: string) {
