@@ -14,15 +14,15 @@ The intent is to offload deterministic, zero-token background work from OpenClaw
 
 ## Current status
 
-This repo is an initial scaffold with:
+Phase 1 launchd implementation now includes:
 
-- pnpm project setup
-- OpenClaw plugin manifest
-- TypeScript entrypoint
-- placeholder optional tool: `native_scheduler`
-- `oxfmt` formatting
-- GitHub Actions CI
-- GitHub Actions npm publish workflow scaffold
+- macOS launchd adapter with native `launchctl` integration
+- wrapper-runner model (jobs execute through a generated Node wrapper)
+- status file schema and storage layout per job (`latest.json`, `health.json`, `runs/*.json`)
+- optional failure callbacks (`command` or `openclaw-event` target)
+- health/run inspection actions on the tool (`health`, `last-run`, `failures`)
+- Vitest suite covering adapter behavior, wrapper lifecycle, status schema transitions, and tool behavior
+- `oxfmt` formatting + CI scaffold
 
 ## Local development
 
@@ -41,17 +41,19 @@ openclaw plugins install openclaw-native-scheduler-plugin
 
 Then enable/configure it in OpenClaw config.
 
-## Planned tool surface
+## Tool surface (current)
 
 - `status`
 - `list`
-- `create`
-- `update`
+- `get`
+- `upsert`
 - `remove`
 - `run`
 - `enable`
 - `disable`
-- `logs`
+- `health`
+- `last-run`
+- `failures`
 
 ## Notes
 

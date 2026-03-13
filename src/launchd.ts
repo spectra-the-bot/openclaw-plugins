@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
-type CalendarEntry = {
+export type CalendarEntry = {
   minute?: number;
   hour?: number;
   day?: number;
@@ -11,7 +11,7 @@ type CalendarEntry = {
   month?: number;
 };
 
-type LaunchdJobInput = {
+export type LaunchdJobInput = {
   id: string;
   description?: string;
   command: string[];
@@ -31,18 +31,13 @@ type PluginLogger = {
   error?: (message: string) => void;
 };
 
-type LaunchdAdapterOptions = {
-  namespace: string;
-  logger?: PluginLogger;
-};
-
 type LaunchctlResult = {
   code: number;
   stdout: string;
   stderr: string;
 };
 
-type LaunchdManagedJob = {
+export type LaunchdManagedJob = {
   id: string;
   label: string;
   filePath: string;
@@ -52,21 +47,57 @@ type LaunchdManagedJob = {
   rawPrint?: string;
 };
 
-function assertDarwin() {
-  if (process.platform !== "darwin") {
+type LaunchdAdapterDeps = {
+  platform?: NodeJS.Platform;
+  getuid?: () => number | undefined;
+  homedir?: () => string;
+  fs?: Pick<typeof fs, "mkdir" | "readdir" | "writeFile" | "rm" | "access">;
+  execLaunchctl?: (args: string[]) => Promise<LaunchctlResult>;
+};
+
+type LaunchdAdapterOptions = {
+  namespace: string;
+  logger?: PluginLogger;
+  deps?: LaunchdAdapterDeps;
+};
+
+function defaultExecLaunchctl(args: string[]): Promise<LaunchctlResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("launchctl", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      resolve({ code: code ?? 1, stdout: stdout.trim(), stderr: stderr.trim() });
+    });
+  });
+}
+
+function assertDarwin(platform: NodeJS.Platform) {
+  if (platform !== "darwin") {
     throw new Error("launchd adapter is only available on macOS");
   }
 }
 
-function getUserDomain() {
-  const uid = typeof process.getuid === "function" ? process.getuid() : undefined;
+function getUserDomain(getuid: () => number | undefined) {
+  const uid = getuid();
   if (uid === undefined) {
     throw new Error("Unable to determine current macOS uid for launchctl domain");
   }
   return `gui/${uid}`;
 }
 
-function sanitizeSegment(value: string) {
+export function sanitizeSegment(value: string) {
   return value
     .trim()
     .toLowerCase()
@@ -75,7 +106,7 @@ function sanitizeSegment(value: string) {
     .replace(/-{2,}/g, "-");
 }
 
-function buildLabel(namespace: string, id: string) {
+export function buildLabel(namespace: string, id: string) {
   const cleanedNamespace = sanitizeSegment(namespace);
   const cleanedId = sanitizeSegment(id);
   if (!cleanedNamespace) {
@@ -129,7 +160,7 @@ function toCalendarDict(entry: CalendarEntry) {
   return xmlDict(pairs);
 }
 
-function renderPlist(label: string, job: LaunchdJobInput) {
+export function renderPlist(label: string, job: LaunchdJobInput) {
   const entries: [string, string][] = [
     ["Label", xmlValue(label)],
     ["ProgramArguments", xmlArray(job.command)],
@@ -167,31 +198,9 @@ function renderPlist(label: string, job: LaunchdJobInput) {
 `;
 }
 
-async function execLaunchctl(args: string[]): Promise<LaunchctlResult> {
-  return await new Promise((resolve, reject) => {
-    const child = spawn("launchctl", args, {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk) => {
-      stdout += String(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += String(chunk);
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      resolve({ code: code ?? 1, stdout: stdout.trim(), stderr: stderr.trim() });
-    });
-  });
-}
-
-async function pathExists(filePath: string) {
+async function pathExists(fsImpl: Pick<typeof fs, "access">, filePath: string) {
   try {
-    await fs.access(filePath);
+    await fsImpl.access(filePath);
     return true;
   } catch {
     return false;
@@ -199,10 +208,16 @@ async function pathExists(filePath: string) {
 }
 
 export function createLaunchdAdapter(options: LaunchdAdapterOptions) {
-  assertDarwin();
+  const fsImpl = options.deps?.fs ?? fs;
+  const platform = options.deps?.platform ?? process.platform;
+  const getuid = options.deps?.getuid ?? (() => process.getuid?.());
+  const homedir = options.deps?.homedir ?? os.homedir;
+  const execLaunchctl = options.deps?.execLaunchctl ?? defaultExecLaunchctl;
 
-  const userDomain = getUserDomain();
-  const agentsDir = path.join(os.homedir(), "Library", "LaunchAgents");
+  assertDarwin(platform);
+
+  const userDomain = getUserDomain(getuid);
+  const agentsDir = path.join(homedir(), "Library", "LaunchAgents");
 
   function logInfo(message: string, extra?: unknown) {
     const suffix = extra === undefined ? "" : ` ${JSON.stringify(extra)}`;
@@ -243,7 +258,7 @@ export function createLaunchdAdapter(options: LaunchdAdapterOptions) {
   async function summarize(id: string): Promise<LaunchdManagedJob> {
     const label = resolveLabel(id);
     const filePath = resolvePlistPath(id);
-    const exists = await pathExists(filePath);
+    const exists = await pathExists(fsImpl, filePath);
     const rawPrint = await printService(label);
     const disabledMap = await getDisabledMap();
     return {
@@ -270,8 +285,8 @@ export function createLaunchdAdapter(options: LaunchdAdapterOptions) {
 
   return {
     async list() {
-      await fs.mkdir(agentsDir, { recursive: true });
-      const entries = await fs.readdir(agentsDir, { withFileTypes: true });
+      await fsImpl.mkdir(agentsDir, { recursive: true });
+      const entries = await fsImpl.readdir(agentsDir, { withFileTypes: true });
       const prefix = `${sanitizeSegment(options.namespace)}.`;
       const ids = entries
         .filter(
@@ -298,11 +313,11 @@ export function createLaunchdAdapter(options: LaunchdAdapterOptions) {
       if (!job.command.length) {
         throw new Error("job.command must contain at least one item");
       }
-      await fs.mkdir(agentsDir, { recursive: true });
+      await fsImpl.mkdir(agentsDir, { recursive: true });
       const label = resolveLabel(job.id);
       const filePath = resolvePlistPath(job.id);
       const plist = renderPlist(label, job);
-      await fs.writeFile(filePath, plist, "utf8");
+      await fsImpl.writeFile(filePath, plist, "utf8");
       await unloadIfPresent(job.id);
       const bootstrap = await execLaunchctl(["bootstrap", userDomain, filePath]);
       if (bootstrap.code !== 0) {
@@ -325,7 +340,7 @@ export function createLaunchdAdapter(options: LaunchdAdapterOptions) {
       const label = resolveLabel(id);
       const filePath = resolvePlistPath(id);
       await unloadIfPresent(id);
-      await fs.rm(filePath, { force: true });
+      await fsImpl.rm(filePath, { force: true });
       return {
         removed: true,
         id,

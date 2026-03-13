@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { Type } from "@sinclair/typebox";
 import type { AnyAgentTool, OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import {
@@ -6,7 +8,21 @@ import {
   getDefaultNamespace,
   type NativeSchedulerBackend,
 } from "./backend.js";
-import { createLaunchdAdapter } from "./launchd.js";
+import { createLaunchdAdapter, type CalendarEntry, type LaunchdJobInput } from "./launchd.js";
+import {
+  getDefaultDataDir,
+  listFailureRuns,
+  readJsonIfExists,
+  resolveJobPaths,
+  sanitizeStorageSegment,
+  type JobHealth,
+  type JobRunStatus,
+} from "./status.js";
+import {
+  materializeWrapperJob,
+  removeWrapperArtifacts,
+  type FailureCallbackTarget,
+} from "./wrapper.js";
 
 const CalendarEntrySchema = Type.Object(
   {
@@ -19,6 +35,25 @@ const CalendarEntrySchema = Type.Object(
   { additionalProperties: false },
 );
 
+const FailureCallbackSchema = Type.Union([
+  Type.Object(
+    {
+      type: Type.Literal("command"),
+      command: Type.Array(Type.String(), { minItems: 1 }),
+      environment: Type.Optional(Type.Record(Type.String(), Type.String())),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      type: Type.Literal("openclaw-event"),
+      text: Type.Optional(Type.String()),
+      mode: Type.Optional(Type.Union([Type.Literal("now"), Type.Literal("queue")])),
+    },
+    { additionalProperties: false },
+  ),
+]);
+
 const JobSchema = Type.Object(
   {
     id: Type.String({
@@ -28,7 +63,7 @@ const JobSchema = Type.Object(
     description: Type.Optional(Type.String()),
     command: Type.Array(Type.String(), {
       minItems: 1,
-      description: "Executable followed by arguments; maps to launchd ProgramArguments.",
+      description: "Executable followed by arguments.",
     }),
     workingDirectory: Type.Optional(Type.String()),
     environment: Type.Optional(Type.Record(Type.String(), Type.String())),
@@ -45,6 +80,7 @@ const JobSchema = Type.Object(
     stdoutPath: Type.Optional(Type.String()),
     stderrPath: Type.Optional(Type.String()),
     disabled: Type.Optional(Type.Boolean()),
+    failureCallback: Type.Optional(FailureCallbackSchema),
   },
   { additionalProperties: false },
 );
@@ -60,6 +96,9 @@ const NativeSchedulerToolSchema = Type.Object(
       Type.Literal("run"),
       Type.Literal("enable"),
       Type.Literal("disable"),
+      Type.Literal("health"),
+      Type.Literal("last-run"),
+      Type.Literal("failures"),
     ]),
     backend: Type.Optional(
       Type.Union([
@@ -73,17 +112,10 @@ const NativeSchedulerToolSchema = Type.Object(
     id: Type.Optional(Type.String({ minLength: 1 })),
     namespace: Type.Optional(Type.String({ minLength: 1 })),
     job: Type.Optional(JobSchema),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
   },
   { additionalProperties: false },
 );
-
-type CalendarEntry = {
-  minute?: number;
-  hour?: number;
-  day?: number;
-  weekday?: number;
-  month?: number;
-};
 
 type NativeSchedulerJob = {
   id: string;
@@ -97,14 +129,27 @@ type NativeSchedulerJob = {
   stdoutPath?: string;
   stderrPath?: string;
   disabled?: boolean;
+  failureCallback?: FailureCallbackTarget;
 };
 
 type NativeSchedulerToolParams = {
-  action: "status" | "list" | "get" | "upsert" | "remove" | "run" | "enable" | "disable";
+  action:
+    | "status"
+    | "list"
+    | "get"
+    | "upsert"
+    | "remove"
+    | "run"
+    | "enable"
+    | "disable"
+    | "health"
+    | "last-run"
+    | "failures";
   backend?: NativeSchedulerBackend | "auto";
   id?: string;
   namespace?: string;
   job?: NativeSchedulerJob;
+  limit?: number;
 };
 
 type NativeSchedulerResult = {
@@ -128,6 +173,14 @@ function resolveBackend(api: OpenClawPluginApi, params: NativeSchedulerToolParam
   return getConfiguredBackend(api.pluginConfig, params.backend);
 }
 
+function resolveDataDir(api: OpenClawPluginApi) {
+  const configured = api.pluginConfig?.dataDir;
+  if (typeof configured === "string" && configured.trim()) {
+    return configured.trim();
+  }
+  return getDefaultDataDir();
+}
+
 function requireId(params: NativeSchedulerToolParams) {
   if (!params.id?.trim()) {
     throw new Error("id is required for this action");
@@ -142,9 +195,53 @@ function requireJob(params: NativeSchedulerToolParams) {
   return params.job;
 }
 
+function toLaunchdInput(job: NativeSchedulerJob, wrappedCommand: string[]): LaunchdJobInput {
+  return {
+    id: job.id,
+    description: job.description,
+    command: wrappedCommand,
+    runAtLoad: job.runAtLoad,
+    startIntervalSeconds: job.startIntervalSeconds,
+    calendar: job.calendar,
+    stdoutPath: job.stdoutPath,
+    stderrPath: job.stderrPath,
+    disabled: job.disabled,
+  };
+}
+
+async function listHealthForNamespace(dataDir: string, namespace: string) {
+  const namespaceRoot = path.join(dataDir, sanitizeStorageSegment(namespace));
+  const entries = await fs.readdir(namespaceRoot, { withFileTypes: true }).catch((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "ENOENT"
+    ) {
+      return [] as import("node:fs").Dirent[];
+    }
+    throw error;
+  });
+
+  const items: JobHealth[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const fullPath = path.join(namespaceRoot, entry.name, "health.json");
+    const health = await readJsonIfExists<JobHealth>(fullPath);
+    if (health) {
+      items.push(health);
+    }
+  }
+
+  items.sort((a, b) => (b.lastRunAt ?? "").localeCompare(a.lastRunAt ?? ""));
+  return items;
+}
+
 async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerToolParams) {
   const namespace = resolveNamespace(api, params);
   const backend = resolveBackend(api, params);
+  const dataDir = resolveDataDir(api);
 
   if (params.action === "status") {
     return {
@@ -152,7 +249,10 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
       action: params.action,
       backend,
       namespace,
-      data: getBackendStatus(backend, namespace),
+      data: {
+        ...getBackendStatus(backend, namespace),
+        dataDir,
+      },
     } satisfies NativeSchedulerResult;
   }
 
@@ -163,6 +263,63 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
       backend,
       namespace,
       error: `Backend ${backend} is not implemented yet. Start with macOS launchd.`,
+    } satisfies NativeSchedulerResult;
+  }
+
+  if (params.action === "health") {
+    if (params.id?.trim()) {
+      const paths = resolveJobPaths(namespace, params.id.trim(), dataDir);
+      return {
+        ok: true,
+        action: params.action,
+        backend,
+        namespace,
+        data: {
+          job: params.id.trim(),
+          health: (await readJsonIfExists<JobHealth>(paths.healthPath)) ?? null,
+        },
+      } satisfies NativeSchedulerResult;
+    }
+
+    return {
+      ok: true,
+      action: params.action,
+      backend,
+      namespace,
+      data: {
+        jobs: await listHealthForNamespace(dataDir, namespace),
+      },
+    } satisfies NativeSchedulerResult;
+  }
+
+  if (params.action === "last-run") {
+    const id = requireId(params);
+    const paths = resolveJobPaths(namespace, id, dataDir);
+    return {
+      ok: true,
+      action: params.action,
+      backend,
+      namespace,
+      data: {
+        job: id,
+        run: (await readJsonIfExists<JobRunStatus>(paths.latestPath)) ?? null,
+      },
+    } satisfies NativeSchedulerResult;
+  }
+
+  if (params.action === "failures") {
+    const id = requireId(params);
+    const paths = resolveJobPaths(namespace, id, dataDir);
+    const limit = params.limit ?? 10;
+    return {
+      ok: true,
+      action: params.action,
+      backend,
+      namespace,
+      data: {
+        job: id,
+        failures: await listFailureRuns(paths, limit),
+      },
     } satisfies NativeSchedulerResult;
   }
 
@@ -185,22 +342,55 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
         namespace,
         data: await adapter.get(requireId(params)),
       } satisfies NativeSchedulerResult;
-    case "upsert":
+    case "upsert": {
+      const job = requireJob(params);
+      const wrapped = await materializeWrapperJob({
+        namespace,
+        job: {
+          id: job.id,
+          command: job.command,
+          workingDirectory: job.workingDirectory,
+          environment: job.environment,
+          failureCallback: job.failureCallback,
+        },
+        dataDir,
+      });
+
+      const upserted = await adapter.upsert(toLaunchdInput(job, wrapped.command));
+
       return {
         ok: true,
         action: params.action,
         backend,
         namespace,
-        data: await adapter.upsert(requireJob(params)),
+        data: {
+          ...upserted,
+          wrapper: {
+            runner: wrapped.paths.wrapperPath,
+            config: wrapped.paths.wrapperConfigPath,
+            latest: wrapped.paths.latestPath,
+            health: wrapped.paths.healthPath,
+            runsDir: wrapped.paths.runsDir,
+          },
+        },
       } satisfies NativeSchedulerResult;
-    case "remove":
+    }
+    case "remove": {
+      const id = requireId(params);
+      const paths = resolveJobPaths(namespace, id, dataDir);
+      const removed = await adapter.remove(id);
+      await removeWrapperArtifacts(paths);
       return {
         ok: true,
         action: params.action,
         backend,
         namespace,
-        data: await adapter.remove(requireId(params)),
+        data: {
+          ...removed,
+          wrapperRemoved: true,
+        },
       } satisfies NativeSchedulerResult;
+    }
     case "run":
       return {
         ok: true,
@@ -240,7 +430,7 @@ export function createNativeSchedulerTool(api: OpenClawPluginApi): AnyAgentTool 
   return {
     name: "native_scheduler",
     description:
-      "Manage native OS scheduler jobs. Current implementation supports a real macOS launchd adapter plus a cross-platform-shaped tool contract.",
+      "Manage native OS scheduler jobs. Current implementation supports macOS launchd with wrapper-run metadata and failure callbacks.",
     parameters: NativeSchedulerToolSchema,
     async execute(_id, params: NativeSchedulerToolParams) {
       try {
