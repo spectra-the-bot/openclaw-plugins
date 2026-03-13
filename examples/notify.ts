@@ -23,7 +23,7 @@ async function main() {
     result: "message",
     text: `🔔 Scheduled notification from job ${ctx.jobId} at ${new Date(ctx.triggeredAt).toISOString()}`,
     channel: "discord",
-    target: "general",
+    target: "1234567890123456789", // Discord channel snowflake ID (not channel name)
   };
 
   process.stdout.write(JSON.stringify(result));
