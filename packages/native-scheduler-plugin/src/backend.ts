@@ -52,9 +52,9 @@ export function getBackendStatus(backend: string, namespace: string) {
     },
     implemented: {
       launchd: true,
-      cron: false,
-      systemd: false,
-      "windows-task-scheduler": false,
+      cron: true,
+      systemd: true,
+      "windows-task-scheduler": true,
     },
   };
 }

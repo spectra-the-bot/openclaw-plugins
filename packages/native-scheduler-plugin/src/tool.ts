@@ -9,6 +9,7 @@ import {
   getDefaultNamespace,
   type NativeSchedulerBackend,
 } from "./backend.js";
+import { type CronJobInput, createCronAdapter } from "./cron-adapter.js";
 import { type CalendarEntry, createLaunchdAdapter, type LaunchdJobInput } from "./launchd.js";
 import {
   getDefaultDataDir,
@@ -19,6 +20,8 @@ import {
   resolveJobPaths,
   sanitizeStorageSegment,
 } from "./status.js";
+import { createSystemdAdapter, type SystemdJobInput } from "./systemd.js";
+import { createWintaskAdapter, type WintaskJobInput } from "./wintask.js";
 import {
   type FailureCallbackTarget,
   materializeWrapperJob,
@@ -248,6 +251,86 @@ function toLaunchdInput(job: NativeSchedulerJob, wrappedCommand: string[]): Laun
   };
 }
 
+function toSystemdInput(job: NativeSchedulerJob, wrappedCommand: string[]): SystemdJobInput {
+  return {
+    id: job.id,
+    description: job.description,
+    command: wrappedCommand,
+    workingDirectory: job.workingDirectory,
+    environment: job.environment,
+    startIntervalSeconds: job.startIntervalSeconds,
+    disabled: job.disabled,
+  };
+}
+
+function toCronInput(job: NativeSchedulerJob, wrappedCommand: string[]): CronJobInput {
+  return {
+    id: job.id,
+    description: job.description,
+    command: wrappedCommand,
+    environment: job.environment,
+    startIntervalSeconds: job.startIntervalSeconds,
+  };
+}
+
+function toWintaskInput(job: NativeSchedulerJob, wrappedCommand: string[]): WintaskJobInput {
+  return {
+    id: job.id,
+    description: job.description,
+    command: wrappedCommand,
+    environment: job.environment,
+    startIntervalSeconds: job.startIntervalSeconds,
+  };
+}
+
+type GenericAdapter = {
+  list: () => Promise<Record<string, unknown>>;
+  get: (id: string) => Promise<Record<string, unknown>>;
+  upsert: (job: unknown) => Promise<Record<string, unknown>>;
+  remove: (id: string) => Promise<Record<string, unknown>>;
+  run: (id: string) => Promise<Record<string, unknown>>;
+  enable: (id: string) => Promise<Record<string, unknown>>;
+  disable: (id: string) => Promise<Record<string, unknown>>;
+};
+
+function createAdapter(
+  backend: string,
+  namespace: string,
+  logger?: { info?: (m: string) => void; warn?: (m: string) => void; error?: (m: string) => void },
+): GenericAdapter {
+  switch (backend) {
+    case "launchd":
+      return createLaunchdAdapter({ namespace, logger }) as unknown as GenericAdapter;
+    case "systemd":
+      return createSystemdAdapter({ namespace, logger }) as unknown as GenericAdapter;
+    case "cron":
+      return createCronAdapter({ namespace, logger }) as unknown as GenericAdapter;
+    case "windows-task-scheduler":
+      return createWintaskAdapter({ namespace, logger }) as unknown as GenericAdapter;
+    default:
+      throw new Error(`Unsupported backend: ${backend}`);
+  }
+}
+
+function toAdapterInput(
+  backend: string,
+  job: NativeSchedulerJob,
+  wrappedCommand: string[],
+): unknown {
+  switch (backend) {
+    case "launchd":
+      return toLaunchdInput(job, wrappedCommand);
+    case "systemd":
+      return toSystemdInput(job, wrappedCommand);
+    case "cron":
+      return toCronInput(job, wrappedCommand);
+    case "windows-task-scheduler":
+      return toWintaskInput(job, wrappedCommand);
+    default:
+      throw new Error(`Unsupported backend: ${backend}`);
+  }
+}
+
 async function listHealthForNamespace(dataDir: string, namespace: string) {
   const namespaceRoot = path.join(dataDir, sanitizeStorageSegment(namespace));
   const entries = await fs.readdir(namespaceRoot, { withFileTypes: true }).catch((error) => {
@@ -375,16 +458,6 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
     } satisfies NativeSchedulerResult;
   }
 
-  if (backend !== "launchd") {
-    return {
-      ok: false,
-      action: params.action,
-      backend,
-      namespace,
-      error: `Backend ${backend} is not implemented yet. Start with macOS launchd.`,
-    } satisfies NativeSchedulerResult;
-  }
-
   if (params.action === "health") {
     if (params.id?.trim()) {
       const paths = resolveJobPaths(namespace, params.id.trim(), dataDir);
@@ -442,7 +515,7 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
     } satisfies NativeSchedulerResult;
   }
 
-  const adapter = createLaunchdAdapter({ namespace, logger: api.logger });
+  const adapter = createAdapter(backend, namespace, api.logger);
 
   switch (params.action) {
     case "list":
@@ -476,7 +549,7 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
         dataDir,
       });
 
-      const upserted = await adapter.upsert(toLaunchdInput(job, wrapped.command));
+      const upserted = await adapter.upsert(toAdapterInput(backend, job, wrapped.command));
 
       return {
         ok: true,
