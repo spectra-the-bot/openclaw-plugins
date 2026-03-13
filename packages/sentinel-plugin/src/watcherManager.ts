@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import os from "node:os";
+import path from "node:path";
 import { createCallbackEnvelope } from "./callbackEnvelope.js";
 import { evaluateConditions, hashPayload } from "./evaluator.js";
 import { assertHostAllowed, assertWatcherLimits } from "./limits.js";
@@ -20,38 +20,61 @@ import {
   type WatcherDefinition,
   type WatcherRuntimeState,
 } from "./types.js";
+import { resolveOpenClawStateDir } from "./utils.js";
 import { validateWatcherDefinition } from "./validator.js";
 
 export const RESET_BACKOFF_AFTER_MS = 60_000;
 const MAX_DEBUG_NOTIFICATION_CHARS = 7000;
 
-function resolveFilePath(filePath: string): string {
-  if (filePath.startsWith("~/")) {
-    return `${os.homedir()}${filePath.slice(1)}`;
+export function resolveDataDir(config: SentinelConfig): string {
+  if (typeof config.dataDir === "string" && config.dataDir.trim()) {
+    return config.dataDir.trim();
   }
-  return filePath;
+  return path.join(resolveOpenClawStateDir(), "data", "sentinel");
 }
 
-async function readOperatorGoalFile(
-  filePath: string,
+export async function readOperatorGoalFile(
+  relativePath: string,
+  dataDir: string,
   maxChars: number,
   logger?: WatcherLogger,
 ): Promise<string | undefined> {
+  const goalDir = path.resolve(path.join(dataDir, "operator-goals"));
+  const candidate = path.resolve(path.join(goalDir, relativePath));
+
+  // Static traversal check
+  if (!candidate.startsWith(goalDir + path.sep) && candidate !== goalDir) {
+    logger?.warn?.(`[openclaw-sentinel] operatorGoalFile path escapes workspace: ${relativePath}`);
+    return undefined;
+  }
+
+  // Symlink-aware check
   try {
-    const resolved = resolveFilePath(filePath);
-    const content = await readFile(resolved, "utf8");
+    const fsP = await import("node:fs/promises");
+    const realGoalDir = await fsP.realpath(goalDir);
+    const real = await fsP.realpath(candidate);
+    if (!real.startsWith(realGoalDir + path.sep) && real !== realGoalDir) {
+      logger?.warn?.(
+        `[openclaw-sentinel] operatorGoalFile symlink escapes workspace: ${relativePath}`,
+      );
+      return undefined;
+    }
+  } catch {
+    /* file missing — handled in read below */
+  }
+
+  try {
+    const content = await readFile(candidate, "utf8");
     const trimmed = content.trim();
     if (trimmed.length === 0) return undefined;
     if (trimmed.length > maxChars) {
-      logger?.warn?.(
-        `[openclaw-sentinel] operatorGoalFile content truncated from ${trimmed.length} to ${maxChars} chars: ${filePath}`,
-      );
+      logger?.warn?.(`[openclaw-sentinel] operatorGoalFile truncated: ${relativePath}`);
       return trimmed.slice(0, maxChars);
     }
     return trimmed;
   } catch (err) {
     logger?.warn?.(
-      `[openclaw-sentinel] Failed to read operatorGoalFile "${filePath}": ${String((err as Error)?.message ?? err)}`,
+      `[openclaw-sentinel] Failed to read operatorGoalFile "${relativePath}": ${String((err as Error)?.message ?? err)}`,
     );
     return undefined;
   }
@@ -117,6 +140,7 @@ export class WatcherManager {
   private stops = new Map<string, () => void | Promise<void>>();
   private retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private statePath: string;
+  readonly resolvedDataDir: string;
   private logger?: WatcherLogger;
   private webhookRegistration: {
     path: string;
@@ -133,7 +157,8 @@ export class WatcherManager {
     private dispatcher: GatewayWebhookDispatcher,
     private notifier?: WatcherNotifier,
   ) {
-    this.statePath = config.stateFilePath ?? defaultStatePath();
+    this.resolvedDataDir = resolveDataDir(config);
+    this.statePath = config.stateFilePath ?? defaultStatePath(this.resolvedDataDir);
   }
 
   async init(): Promise<void> {
@@ -317,6 +342,7 @@ export class WatcherManager {
             const maxChars = this.config.maxOperatorGoalChars ?? DEFAULT_OPERATOR_GOAL_MAX_CHARS;
             operatorGoalRuntimeContext = await readOperatorGoalFile(
               watcher.fire.operatorGoalFile,
+              this.resolvedDataDir,
               maxChars,
               this.logger,
             );

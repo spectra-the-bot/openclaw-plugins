@@ -186,6 +186,8 @@ export interface SentinelConfig {
   hookResponseTimeoutMs?: number;
   hookResponseFallbackMode?: HookResponseFallbackMode;
   hookResponseDedupeWindowMs?: number;
+  /** Managed data directory for sentinel state and operator goal files. */
+  dataDir?: string;
   stateFilePath?: string;
   notificationPayloadMode?: NotificationPayloadMode;
   maxOperatorGoalChars?: number;

@@ -75,12 +75,12 @@ describe("operatorGoalFile", () => {
     await rm(TEST_DIR, { recursive: true, force: true });
   });
 
-  it("creates a watcher with operatorGoalFile", async () => {
+  it("creates a watcher with operatorGoalFile (relative path)", async () => {
     const { manager } = buildManager();
     const watcher = await manager.create(
-      baseWatcher("with-file", { operatorGoalFile: "/tmp/policy.json" }),
+      baseWatcher("with-file", { operatorGoalFile: "policy.json" }),
     );
-    expect(watcher.fire.operatorGoalFile).toBe("/tmp/policy.json");
+    expect(watcher.fire.operatorGoalFile).toBe("policy.json");
   });
 
   it("creates a watcher with both operatorGoal and operatorGoalFile", async () => {
@@ -88,22 +88,22 @@ describe("operatorGoalFile", () => {
     const watcher = await manager.create(
       baseWatcher("with-both", {
         operatorGoal: "Follow the bidding policy",
-        operatorGoalFile: "~/.openclaw/policies/bid.json",
+        operatorGoalFile: "policies/bid.json",
       }),
     );
     expect(watcher.fire.operatorGoal).toBe("Follow the bidding policy");
-    expect(watcher.fire.operatorGoalFile).toBe("~/.openclaw/policies/bid.json");
+    expect(watcher.fire.operatorGoalFile).toBe("policies/bid.json");
   });
 
   it("persists operatorGoalFile through state save/load cycle", async () => {
     const { manager } = buildManager();
     const watcher = await manager.create(
-      baseWatcher("persist-test", { operatorGoalFile: "/tmp/policy.json" }),
+      baseWatcher("persist-test", { operatorGoalFile: "policy.json" }),
     );
-    expect(watcher.fire.operatorGoalFile).toBe("/tmp/policy.json");
+    expect(watcher.fire.operatorGoalFile).toBe("policy.json");
 
     const listed = manager.list();
     const found = listed.find((w) => w.id === "persist-test");
-    expect(found?.fire.operatorGoalFile).toBe("/tmp/policy.json");
+    expect(found?.fire.operatorGoalFile).toBe("policy.json");
   });
 });

@@ -64,8 +64,13 @@ function requireSegment(value: string, field: string) {
   return cleaned;
 }
 
+export function resolveOpenClawStateDir(): string {
+  const override = process.env.OPENCLAW_STATE_DIR?.trim() || process.env.CLAWDBOT_STATE_DIR?.trim();
+  return override ?? path.join(os.homedir(), ".openclaw");
+}
+
 export function getDefaultDataDir() {
-  return path.join(os.homedir(), ".openclaw", "native-scheduler");
+  return path.join(resolveOpenClawStateDir(), "data", "native-scheduler");
 }
 
 export function resolveJobPaths(

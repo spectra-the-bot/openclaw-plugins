@@ -43,6 +43,10 @@
         "description": "Suppress duplicate relay messages for the same dedupe key within this window (milliseconds)",
         "default": 120000
       },
+      "dataDir": {
+        "type": "string",
+        "description": "Managed data directory for sentinel state and operator goal files (default: $OPENCLAW_STATE_DIR/data/sentinel)"
+      },
       "stateFilePath": {
         "type": "string",
         "description": "Custom path for the sentinel state persistence file"
@@ -144,6 +148,11 @@
     "hookRelayDedupeWindowMs": {
       "label": "Hook Relay Dedupe Window (ms)",
       "help": "Suppress duplicate relay messages with the same dedupe key for this many milliseconds",
+      "advanced": true
+    },
+    "dataDir": {
+      "label": "Data Directory",
+      "help": "Managed data directory for sentinel state and operator goal files (default: $OPENCLAW_STATE_DIR/data/sentinel)",
       "advanced": true
     },
     "stateFilePath": {

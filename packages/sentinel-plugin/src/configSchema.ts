@@ -37,6 +37,7 @@ const ConfigSchema = Type.Object(
     hookResponseTimeoutMs: Type.Optional(Type.Integer({ minimum: 0 })),
     hookResponseFallbackMode: Type.Optional(HookResponseFallbackModeSchema),
     hookResponseDedupeWindowMs: Type.Optional(Type.Integer({ minimum: 0 })),
+    dataDir: Type.Optional(Type.String()),
     stateFilePath: Type.Optional(Type.String()),
     notificationPayloadMode: Type.Optional(NotificationPayloadModeSchema),
     maxOperatorGoalChars: Type.Optional(
@@ -125,6 +126,7 @@ function withDefaults(value: Record<string, unknown>): Record<string, unknown> {
       Number.isFinite(value.hookResponseDedupeWindowMs)
         ? value.hookResponseDedupeWindowMs
         : 120000,
+    dataDir: typeof value.dataDir === "string" ? value.dataDir : undefined,
     stateFilePath: typeof value.stateFilePath === "string" ? value.stateFilePath : undefined,
     notificationPayloadMode:
       value.notificationPayloadMode === "none"
@@ -282,6 +284,11 @@ export const sentinelConfigSchema: OpenClawPluginConfigSchema = {
           "Deduplicate hook response-delivery contracts by dedupe key within this window (milliseconds)",
         default: 120000,
       },
+      dataDir: {
+        type: "string",
+        description:
+          "Managed data directory for sentinel state and operator goal files (default: $OPENCLAW_STATE_DIR/data/sentinel)",
+      },
       stateFilePath: {
         type: "string",
         description: "Custom path for the sentinel state persistence file",
@@ -384,6 +391,11 @@ export const sentinelConfigSchema: OpenClawPluginConfigSchema = {
     hookResponseDedupeWindowMs: {
       label: "Hook Response Dedupe Window (ms)",
       help: "Deduplicate hook-response delivery contracts by dedupe key within this window",
+      advanced: true,
+    },
+    dataDir: {
+      label: "Data Directory",
+      help: "Managed data directory for sentinel state and operator goal files (default: $OPENCLAW_STATE_DIR/data/sentinel)",
       advanced: true,
     },
     stateFilePath: {

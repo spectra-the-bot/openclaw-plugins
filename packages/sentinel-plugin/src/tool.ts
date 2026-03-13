@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import type { Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import type { AnyAgentTool } from "openclaw/plugin-sdk";
@@ -143,16 +145,43 @@ export function registerSentinelControl(
       switch (payload.action) {
         case "create":
         case "add": {
-          const watcherWithContext = addOriginDeliveryMetadata(
-            payload.watcher as unknown as Record<string, unknown>,
-            ctx,
-          );
-          return normalizeToolResultText(
-            await manager.create(watcherWithContext, {
-              deliveryTargets: inferDefaultDeliveryTargets(ctx),
-            }),
-            "Watcher created",
-          );
+          const operatorGoalContent = (payload as Record<string, unknown>).operatorGoalContent as
+            | string
+            | undefined;
+          const watcherRaw = payload.watcher as unknown as Record<string, unknown>;
+          const fireRaw = watcherRaw.fire as Record<string, unknown> | undefined;
+          const operatorGoalFile = fireRaw?.operatorGoalFile as string | undefined;
+
+          if (operatorGoalContent && !operatorGoalFile) {
+            throw new Error(
+              "operatorGoalContent requires operatorGoalFile to be set on the watcher",
+            );
+          }
+
+          let goalFileWritten: string | undefined;
+          if (operatorGoalContent && operatorGoalFile) {
+            const dataDir = manager.resolvedDataDir;
+            const goalDir = path.resolve(path.join(dataDir, "operator-goals"));
+            const candidate = path.resolve(path.join(goalDir, operatorGoalFile));
+
+            if (!candidate.startsWith(goalDir + path.sep) && candidate !== goalDir) {
+              throw new Error(`operatorGoalFile path escapes workspace: ${operatorGoalFile}`);
+            }
+
+            await fs.mkdir(path.dirname(candidate), { recursive: true });
+            await fs.writeFile(candidate, operatorGoalContent, "utf8");
+            goalFileWritten = candidate;
+          }
+
+          const watcherWithContext = addOriginDeliveryMetadata(watcherRaw, ctx);
+          const created = await manager.create(watcherWithContext, {
+            deliveryTargets: inferDefaultDeliveryTargets(ctx),
+          });
+          const result: Record<string, unknown> = { ...created };
+          if (goalFileWritten) {
+            result.goalFileWritten = goalFileWritten;
+          }
+          return normalizeToolResultText(result, "Watcher created");
         }
         case "enable":
           await manager.enable(payload.id);
