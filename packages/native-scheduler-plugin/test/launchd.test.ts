@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildLabel,
   createLaunchdAdapter,
+  FALLBACK_PATH,
   type LaunchdJobInput,
   renderPlist,
+  resolveUserPath,
   sanitizeSegment,
 } from "../src/launchd.js";
 
@@ -43,6 +45,29 @@ describe("launchd helpers", () => {
     expect(plist).toContain("<key>StartCalendarInterval</key>");
     expect(plist).toContain("a&amp;&lt;&gt;&apos;&quot;b");
     expect(plist).toContain("<key>Disabled</key><false/>");
+  });
+
+  it("renders plist with PATH in EnvironmentVariables", () => {
+    const job: LaunchdJobInput = {
+      id: "job",
+      command: ["/usr/bin/node", "script.js"],
+      environment: { PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin" },
+    };
+
+    const plist = renderPlist("dev.test.job", job);
+    expect(plist).toContain("<key>EnvironmentVariables</key>");
+    expect(plist).toContain("<key>PATH</key>");
+    expect(plist).toContain("<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>");
+  });
+
+  it("omits EnvironmentVariables when environment is undefined", () => {
+    const job: LaunchdJobInput = {
+      id: "job",
+      command: ["/usr/bin/true"],
+    };
+
+    const plist = renderPlist("dev.test.job", job);
+    expect(plist).not.toContain("<key>EnvironmentVariables</key>");
   });
 });
 
@@ -126,6 +151,99 @@ describeOnMac("createLaunchdAdapter", () => {
     expect(fsMock.rm).toHaveBeenCalledWith(plistPath, { force: true });
   });
 
+  it("includes EnvironmentVariables.PATH in plist when environment.PATH is set", async () => {
+    const files = new Map<string, string>();
+
+    const fsMock = {
+      mkdir: vi.fn(async () => undefined),
+      readdir: vi.fn(async () => []),
+      writeFile: vi.fn(async (filePath: string, content: string) => {
+        files.set(filePath, content);
+      }),
+      rm: vi.fn(async () => undefined),
+      access: vi.fn(async () => {
+        const err = new Error("ENOENT") as Error & { code?: string };
+        err.code = "ENOENT";
+        throw err;
+      }),
+    };
+
+    const execLaunchctl = vi.fn(async (args: string[]) => {
+      if (args[0] === "print") return { code: 1, stdout: "", stderr: "not found" };
+      if (args[0] === "print-disabled") return { code: 0, stdout: "", stderr: "" };
+      return { code: 0, stdout: "", stderr: "" };
+    });
+
+    const adapter = createLaunchdAdapter({
+      namespace: "dev.ns",
+      deps: {
+        platform: "darwin",
+        getuid: () => 501,
+        homedir: () => "/Users/test",
+        fs: fsMock,
+        execLaunchctl,
+      },
+    });
+
+    await adapter.upsert({
+      id: "path-job",
+      command: ["/usr/bin/node", "script.js"],
+      environment: { PATH: "/opt/homebrew/bin:/usr/bin:/bin" },
+    });
+
+    const plistPath = "/Users/test/Library/LaunchAgents/dev.ns.path-job.plist";
+    expect(fsMock.writeFile).toHaveBeenCalledWith(plistPath, expect.any(String), "utf8");
+
+    const plistContent = files.get(plistPath)!;
+    expect(plistContent).toContain("<key>EnvironmentVariables</key>");
+    expect(plistContent).toContain("<key>PATH</key>");
+    expect(plistContent).toContain("<string>/opt/homebrew/bin:/usr/bin:/bin</string>");
+  });
+
+  it("omits EnvironmentVariables from plist when no environment is set", async () => {
+    const files = new Map<string, string>();
+
+    const fsMock = {
+      mkdir: vi.fn(async () => undefined),
+      readdir: vi.fn(async () => []),
+      writeFile: vi.fn(async (filePath: string, content: string) => {
+        files.set(filePath, content);
+      }),
+      rm: vi.fn(async () => undefined),
+      access: vi.fn(async () => {
+        const err = new Error("ENOENT") as Error & { code?: string };
+        err.code = "ENOENT";
+        throw err;
+      }),
+    };
+
+    const execLaunchctl = vi.fn(async (args: string[]) => {
+      if (args[0] === "print") return { code: 1, stdout: "", stderr: "not found" };
+      if (args[0] === "print-disabled") return { code: 0, stdout: "", stderr: "" };
+      return { code: 0, stdout: "", stderr: "" };
+    });
+
+    const adapter = createLaunchdAdapter({
+      namespace: "dev.ns",
+      deps: {
+        platform: "darwin",
+        getuid: () => 501,
+        homedir: () => "/Users/test",
+        fs: fsMock,
+        execLaunchctl,
+      },
+    });
+
+    await adapter.upsert({
+      id: "no-env-job",
+      command: ["/usr/bin/true"],
+    });
+
+    const plistPath = "/Users/test/Library/LaunchAgents/dev.ns.no-env-job.plist";
+    const plistContent = files.get(plistPath)!;
+    expect(plistContent).not.toContain("<key>EnvironmentVariables</key>");
+  });
+
   it("keeps plist path in LaunchAgents even with traversal-like ids", async () => {
     const fsMock = {
       mkdir: vi.fn(async () => undefined),
@@ -154,5 +272,53 @@ describeOnMac("createLaunchdAdapter", () => {
     const result = await adapter.upsert({ id: "../../danger", command: ["/usr/bin/true"] });
     expect(result.filePath.startsWith("/Users/test/Library/LaunchAgents/")).toBe(true);
     expect(result.filePath.includes("../")).toBe(false);
+  });
+});
+
+describe("resolveUserPath", () => {
+  it("returns resolved PATH from login shell probe", async () => {
+    const mockPath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin";
+    const execProbe = vi.fn(async () => ({ code: 0, stdout: mockPath }));
+
+    const result = await resolveUserPath({ execProbe, shell: "/bin/zsh" });
+    expect(result).toBe(mockPath);
+    expect(execProbe).toHaveBeenCalledWith("/bin/zsh", ["-l", "-c", 'printf "%s" "$PATH"'], 3_000);
+  });
+
+  it("returns FALLBACK_PATH when probe exits non-zero", async () => {
+    const execProbe = vi.fn(async () => ({ code: 1, stdout: "" }));
+
+    const result = await resolveUserPath({ execProbe });
+    expect(result).toBe(FALLBACK_PATH);
+  });
+
+  it("returns FALLBACK_PATH when probe returns empty stdout", async () => {
+    const execProbe = vi.fn(async () => ({ code: 0, stdout: "  \n" }));
+
+    const result = await resolveUserPath({ execProbe });
+    expect(result).toBe(FALLBACK_PATH);
+  });
+
+  it("returns FALLBACK_PATH when probe throws (e.g. timeout)", async () => {
+    const execProbe = vi.fn(async () => {
+      throw new Error("spawn ENOENT");
+    });
+
+    const result = await resolveUserPath({ execProbe });
+    expect(result).toBe(FALLBACK_PATH);
+  });
+
+  it("respects custom timeoutMs", async () => {
+    const execProbe = vi.fn(async () => ({ code: 0, stdout: "/usr/bin:/bin" }));
+
+    await resolveUserPath({ execProbe, timeoutMs: 500 });
+    expect(execProbe).toHaveBeenCalledWith(expect.any(String), expect.any(Array), 500);
+  });
+
+  it("trims whitespace from probe output", async () => {
+    const execProbe = vi.fn(async () => ({ code: 0, stdout: "  /usr/bin:/bin  \n" }));
+
+    const result = await resolveUserPath({ execProbe });
+    expect(result).toBe("/usr/bin:/bin");
   });
 });

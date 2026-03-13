@@ -97,6 +97,83 @@ function getUserDomain(getuid: () => number | undefined) {
   return `gui/${uid}`;
 }
 
+/**
+ * Sensible fallback PATH when the login-shell probe fails or times out.
+ * Covers Homebrew (Apple Silicon + Intel), system paths.
+ */
+export const FALLBACK_PATH =
+  "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+
+export type ExecProbe = (
+  command: string,
+  args: string[],
+  timeoutMs: number,
+) => Promise<{ code: number; stdout: string }>;
+
+function defaultExecProbe(
+  command: string,
+  args: string[],
+  timeoutMs: number,
+): Promise<{ code: number; stdout: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "ignore"] });
+    let stdout = "";
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        child.kill("SIGKILL");
+        resolve({ code: 1, stdout: "" });
+      }
+    }, timeoutMs);
+
+    child.stdout!.on("data", (chunk: Buffer) => {
+      stdout += String(chunk);
+    });
+    child.on("error", (err: Error) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        reject(err);
+      }
+    });
+    child.on("close", (code: number | null) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve({ code: code ?? 1, stdout });
+      }
+    });
+  });
+}
+
+/**
+ * Resolve the user's login-shell PATH by running `$SHELL -l -c 'printf "%s" "$PATH"'`.
+ * Falls back to {@link FALLBACK_PATH} on timeout or error.
+ *
+ * @param options.timeoutMs  Max time to wait for the shell probe (default 3 000 ms).
+ * @param options.shell      Override the shell binary (default `$SHELL` or `/bin/zsh`).
+ * @param options.execProbe  Dependency injection for testing.
+ */
+export async function resolveUserPath(options?: {
+  timeoutMs?: number;
+  shell?: string;
+  execProbe?: ExecProbe;
+}): Promise<string> {
+  const timeoutMs = options?.timeoutMs ?? 3_000;
+  const shell = options?.shell ?? process.env.SHELL ?? "/bin/zsh";
+  const probe = options?.execProbe ?? defaultExecProbe;
+
+  try {
+    const result = await probe(shell, ["-l", "-c", 'printf "%s" "$PATH"'], timeoutMs);
+    const trimmed = result.stdout.trim();
+    return result.code === 0 && trimmed ? trimmed : FALLBACK_PATH;
+  } catch {
+    return FALLBACK_PATH;
+  }
+}
+
 export function sanitizeSegment(value: string) {
   return value
     .trim()
