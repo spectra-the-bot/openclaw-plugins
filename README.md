@@ -8,7 +8,7 @@ A pnpm monorepo of OpenClaw plugins maintained by [@spectra-the-bot](https://git
 |---|---|---|
 | [`@spectratools/native-scheduler`](packages/native-scheduler-plugin/) | 0.1.0 | Cross-platform native OS scheduler plugin for OpenClaw |
 | [`@spectratools/native-scheduler-types`](packages/native-scheduler-types/) | 0.1.0 | Script I/O contract types for native-scheduler |
-| [`@spectratools/sentinel-plugin`](packages/sentinel-plugin/) | 0.9.0 | Secure declarative gateway-native watcher plugin for OpenClaw |
+| [`@spectratools/sentinel`](packages/sentinel-plugin/) | 0.9.1 | Secure declarative gateway-native watcher plugin for OpenClaw |
 
 ## native-scheduler-plugin
 
@@ -45,7 +45,7 @@ type NativeSchedulerResult =
 
 **Tool actions:** `status` · `list` · `get` · `upsert` · `remove` · `run` · `enable` · `disable` · `health` · `last-run` · `failures` · `logs`
 
-## sentinel-plugin
+## sentinel
 
 Declarative HTTP/WebSocket/SSE/EVM watcher plugin. Polls endpoints on a configurable interval, evaluates JSONPath conditions, and fires webhook callbacks to agent sessions when conditions are met.
 

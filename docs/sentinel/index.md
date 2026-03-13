@@ -23,7 +23,7 @@ For full upstream documentation, see [coffeexcoin/openclaw-sentinel](https://git
 
 ## Configuration
 
-Configure in `openclaw.json` under `plugins.openclaw-sentinel`:
+Configure in `openclaw.json` under `plugins.sentinel`:
 
 | Field | Type | Default | Description |
 |---|---|---|---|

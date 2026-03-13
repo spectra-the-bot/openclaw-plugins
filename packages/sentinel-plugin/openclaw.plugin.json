@@ -1,5 +1,5 @@
 {
-  "id": "openclaw-sentinel",
+  "id": "sentinel",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

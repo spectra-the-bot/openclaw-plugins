@@ -9,7 +9,7 @@ In `openclaw.json`:
 ```json
 {
   "plugins": {
-    "openclaw-sentinel": {
+    "sentinel": {
       "allowedHosts": ["api.example.com"]
     }
   }

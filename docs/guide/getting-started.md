@@ -34,7 +34,7 @@ Configure in `openclaw.json`:
 ## Installing sentinel
 
 ```bash
-openclaw plugin install @spectratools/sentinel-plugin
+openclaw plugin install @spectratools/sentinel
 ```
 
 Configure in `openclaw.json`:
@@ -42,7 +42,7 @@ Configure in `openclaw.json`:
 ```json
 {
   "plugins": {
-    "openclaw-sentinel": {
+    "sentinel": {
       "allowedHosts": ["api.example.com"],
       "localDispatchBase": "http://127.0.0.1:18789"
     }
