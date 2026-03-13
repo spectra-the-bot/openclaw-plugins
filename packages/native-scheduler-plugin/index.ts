@@ -43,7 +43,11 @@ export default function register(api: OpenClawPluginApi) {
         const ch = api.runtime.channel;
 
         // Validate channel-specific target formats before attempting delivery.
-        if (channel === "discord" && !target.startsWith("channel:") && !target.startsWith("user:")) {
+        if (
+          channel === "discord" &&
+          !target.startsWith("channel:") &&
+          !target.startsWith("user:")
+        ) {
           res.writeHead(400);
           res.end(
             JSON.stringify({
