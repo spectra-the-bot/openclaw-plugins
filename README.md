@@ -17,7 +17,7 @@ The intent is to offload deterministic, zero-token background work from OpenClaw
 This is a pnpm workspace monorepo:
 
 - **`@spectratools/native-scheduler-plugin`** (root) — the OpenClaw plugin
-- **`@spectratools/native-scheduler-types`** (`packages/types/`) — input/output contract types for user scripts
+- **`@spectratools/native-scheduler-types`** (`packages/native-scheduler-types/`) — input/output contract types for user scripts
 
 ## Current status
 
