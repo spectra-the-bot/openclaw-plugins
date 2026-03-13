@@ -11,15 +11,22 @@
     "systemd",
     "windows-task-scheduler"
   ],
-  "homepage": "https://github.com/spectra-the-bot/native-scheduler-plugin",
+  "homepage": "https://plugins.spectratools.dev/native-scheduler/",
   "bugs": {
-    "url": "https://github.com/spectra-the-bot/native-scheduler-plugin/issues"
+    "url": "https://github.com/spectra-the-bot/openclaw-plugins/issues"
   },
   "license": "MIT",
   "author": "spectra",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/spectra-the-bot/native-scheduler-plugin.git"
+    "url": "git+https://github.com/spectra-the-bot/openclaw-plugins.git",
+    "directory": "packages/native-scheduler-plugin"
+  },
+  "exports": {
+    ".": {
+      "import": "./index.ts",
+      "types": "./index.ts"
+    }
   },
   "files": [
     "index.ts",

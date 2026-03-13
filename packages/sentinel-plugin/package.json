@@ -17,7 +17,8 @@
   "author": "spectra",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/spectra-the-bot/openclaw-plugins.git"
+    "url": "git+https://github.com/spectra-the-bot/openclaw-plugins.git",
+    "directory": "packages/sentinel-plugin"
   },
   "files": [
     "src",

@@ -14,14 +14,34 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: "https://registry.npmjs.org"
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
-      - run: pnpm check
-      - run: pnpm publish --no-git-checks --access public
+
+      - name: Typecheck all packages
+        run: pnpm -r typecheck
+
+      - name: Publish @spectratools/native-scheduler-types
+        run: pnpm publish --no-git-checks --access public
+        working-directory: packages/native-scheduler-types
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @spectratools/native-scheduler-plugin
+        run: pnpm publish --no-git-checks --access public
+        working-directory: packages/native-scheduler-plugin
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @spectratools/sentinel-plugin
+        run: pnpm publish --no-git-checks --access public
+        working-directory: packages/sentinel-plugin
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

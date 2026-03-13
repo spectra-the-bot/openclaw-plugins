@@ -2,6 +2,15 @@
   "name": "@spectratools/native-scheduler-types",
   "version": "0.1.0",
   "description": "Input/output contract types for native-scheduler-plugin scripts",
+  "homepage": "https://plugins.spectratools.dev/native-scheduler/script-contract",
+  "bugs": {
+    "url": "https://github.com/spectra-the-bot/openclaw-plugins/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/spectra-the-bot/openclaw-plugins.git",
+    "directory": "packages/native-scheduler-types"
+  },
   "license": "MIT",
   "author": "spectra",
   "files": [
