@@ -1,63 +1,18 @@
 {
-  "name": "@spectratools/native-scheduler-plugin",
-  "version": "0.1.0",
-  "description": "Cross-platform native scheduler plugin for OpenClaw",
-  "keywords": [
-    "cron",
-    "launchd",
-    "openclaw",
-    "plugin",
-    "scheduler",
-    "systemd",
-    "windows-task-scheduler"
-  ],
-  "homepage": "https://github.com/spectra-the-bot/native-scheduler-plugin",
-  "bugs": {
-    "url": "https://github.com/spectra-the-bot/native-scheduler-plugin/issues"
-  },
-  "license": "MIT",
-  "author": "spectra",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/spectra-the-bot/native-scheduler-plugin.git"
-  },
-  "files": [
-    "index.ts",
-    "src",
-    "openclaw.plugin.json",
-    "README.md"
-  ],
+  "private": true,
   "type": "module",
   "scripts": {
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
     "check": "pnpm format:check && pnpm typecheck && pnpm test"
   },
-  "dependencies": {
-    "@sinclair/typebox": "^0.34.41",
-    "@spectratools/native-scheduler-types": "workspace:*"
-  },
   "devDependencies": {
-    "@types/node": "^24.3.0",
-    "openclaw": "^2026.3.11",
-    "oxfmt": "^0.40.0",
-    "typescript": "^5.9.2",
-    "vitest": "^2.1.8"
+    "oxfmt": "^0.40.0"
   },
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@10.30.3",
-  "openclaw": {
-    "extensions": [
-      "./index.ts"
-    ],
-    "install": {
-      "npmSpec": "@spectratools/native-scheduler-plugin",
-      "defaultChoice": "npm"
-    }
-  }
+  "packageManager": "pnpm@10.30.3"
 }
