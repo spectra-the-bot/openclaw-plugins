@@ -14,8 +14,9 @@ import { type CalendarEntry, createLaunchdAdapter, type LaunchdJobInput } from "
 import {
   getDefaultDataDir,
   type JobHealth,
-  type JobRunStatus,
   listFailureRuns,
+  migrateHealth,
+  migrateRunStatus,
   readJsonIfExists,
   resolveJobPaths,
   sanitizeStorageSegment,
@@ -350,9 +351,9 @@ async function listHealthForNamespace(dataDir: string, namespace: string) {
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const fullPath = path.join(namespaceRoot, entry.name, "health.json");
-    const health = await readJsonIfExists<JobHealth>(fullPath);
-    if (health) {
-      items.push(health);
+    const raw = await readJsonIfExists<Record<string, unknown>>(fullPath);
+    if (raw) {
+      items.push(migrateHealth(raw));
     }
   }
 
@@ -468,7 +469,9 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
         namespace,
         data: {
           job: params.id.trim(),
-          health: (await readJsonIfExists<JobHealth>(paths.healthPath)) ?? null,
+          health: await readJsonIfExists<Record<string, unknown>>(paths.healthPath).then((r) =>
+            r ? migrateHealth(r) : null,
+          ),
         },
       } satisfies NativeSchedulerResult;
     }
@@ -494,7 +497,9 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
       namespace,
       data: {
         job: id,
-        run: (await readJsonIfExists<JobRunStatus>(paths.latestPath)) ?? null,
+        run: await readJsonIfExists<Record<string, unknown>>(paths.latestPath).then((r) =>
+          r ? migrateRunStatus(r) : null,
+        ),
       },
     } satisfies NativeSchedulerResult;
   }

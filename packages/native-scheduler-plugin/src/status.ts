@@ -139,6 +139,78 @@ export async function appendRun(paths: JobPaths, run: JobRunStatus) {
   };
 }
 
+/**
+ * Migrate a raw value into a valid {@link JobRunStatus}.
+ * - Version 1: accepted as-is.
+ * - Missing version: treated as v1 with best-effort defaults.
+ * - Unknown future version: best-effort mapping to v1 shape.
+ */
+export function migrateRunStatus(raw: unknown): JobRunStatus {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("migrateRunStatus: expected an object");
+  }
+  const obj = raw as Record<string, unknown>;
+
+  // Already v1 — pass through
+  if (obj.version === 1) {
+    return obj as unknown as JobRunStatus;
+  }
+
+  // Missing version or unknown future version — best-effort mapping to v1
+  return {
+    version: 1,
+    runId: typeof obj.runId === "string" ? obj.runId : "unknown",
+    namespace: typeof obj.namespace === "string" ? obj.namespace : "unknown",
+    jobId: typeof obj.jobId === "string" ? obj.jobId : "unknown",
+    backend: "launchd",
+    command: Array.isArray(obj.command) ? (obj.command as string[]) : [],
+    workingDirectory: typeof obj.workingDirectory === "string" ? obj.workingDirectory : undefined,
+    startedAt: typeof obj.startedAt === "string" ? obj.startedAt : new Date(0).toISOString(),
+    finishedAt: typeof obj.finishedAt === "string" ? obj.finishedAt : new Date(0).toISOString(),
+    durationMs: typeof obj.durationMs === "number" ? obj.durationMs : 0,
+    success: typeof obj.success === "boolean" ? obj.success : false,
+    exitCode: typeof obj.exitCode === "number" ? obj.exitCode : null,
+    signal: typeof obj.signal === "string" ? obj.signal : null,
+  };
+}
+
+/**
+ * Migrate a raw value into a valid {@link JobHealth}.
+ * - Version 1: accepted as-is.
+ * - Missing version: treated as v1 with best-effort defaults.
+ * - Unknown future version: best-effort mapping to v1 shape.
+ */
+export function migrateHealth(raw: unknown): JobHealth {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("migrateHealth: expected an object");
+  }
+  const obj = raw as Record<string, unknown>;
+
+  // Already v1 — pass through
+  if (obj.version === 1) {
+    return obj as unknown as JobHealth;
+  }
+
+  // Missing version or unknown future version — best-effort mapping to v1
+  return {
+    version: 1,
+    namespace: typeof obj.namespace === "string" ? obj.namespace : "unknown",
+    jobId: typeof obj.jobId === "string" ? obj.jobId : "unknown",
+    backend: "launchd",
+    totalRuns: typeof obj.totalRuns === "number" ? obj.totalRuns : 0,
+    totalFailures: typeof obj.totalFailures === "number" ? obj.totalFailures : 0,
+    consecutiveFailures: typeof obj.consecutiveFailures === "number" ? obj.consecutiveFailures : 0,
+    lastRunId: typeof obj.lastRunId === "string" ? obj.lastRunId : undefined,
+    lastRunAt: typeof obj.lastRunAt === "string" ? obj.lastRunAt : undefined,
+    lastSuccessAt: typeof obj.lastSuccessAt === "string" ? obj.lastSuccessAt : undefined,
+    lastFailureAt: typeof obj.lastFailureAt === "string" ? obj.lastFailureAt : undefined,
+    lastExitCode:
+      typeof obj.lastExitCode === "number" || obj.lastExitCode === null
+        ? (obj.lastExitCode as number | null)
+        : undefined,
+  };
+}
+
 export async function listFailureRuns(paths: JobPaths, limit = 10) {
   const entries = await fs.readdir(paths.runsDir, { withFileTypes: true }).catch((error) => {
     if (

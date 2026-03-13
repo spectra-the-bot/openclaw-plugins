@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import type { NativeSchedulerResult } from "@spectratools/native-scheduler-types";
 import { type JobPaths, resolveJobPaths } from "./status.js";
 
@@ -151,6 +150,30 @@ function runCommand(command, options = {}) {
   });
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retryWithBackoff(fn, opts) {
+  const maxAttempts = opts.maxAttempts ?? 3;
+  const baseMs = opts.baseMs ?? 500;
+  const factor = opts.factor ?? 3;
+
+  let lastError;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxAttempts - 1) {
+        const delay = baseMs * Math.pow(factor, attempt);
+        await sleep(delay);
+      }
+    }
+  }
+  return { __retryExhausted: true, error: lastError instanceof Error ? lastError.message : String(lastError) };
+}
+
 function nextHealth(prev, run) {
   return {
     version: 1,
@@ -168,7 +191,7 @@ function nextHealth(prev, run) {
   };
 }
 
-async function triggerFailureCallback(config, run) {
+async function triggerFailureCallbackOnce(config, run) {
   if (!config.failureCallback) {
     return { triggered: false };
   }
@@ -192,7 +215,7 @@ async function triggerFailureCallback(config, run) {
       stdio: "ignore",
     });
     if (result.code !== 0) {
-      return { triggered: true, error: "callback exited with code " + String(result.code) };
+      throw new Error("callback exited with code " + String(result.code));
     }
     return { triggered: true };
   }
@@ -228,7 +251,7 @@ async function triggerFailureCallback(config, run) {
     ];
     const result = await runCommand(["openclaw", ...args], { env, stdio: "ignore", timeoutMs: 8_000 });
     if (result.code !== 0) {
-      return { triggered: true, error: "openclaw event exited with code " + String(result.code) };
+      throw new Error("openclaw event exited with code " + String(result.code));
     }
     return { triggered: true };
   }
@@ -236,7 +259,21 @@ async function triggerFailureCallback(config, run) {
   return { triggered: false, error: "unsupported callback type" };
 }
 
-async function deliverPromptResult(scriptResult) {
+async function triggerFailureCallback(config, run) {
+  if (!config.failureCallback) {
+    return { triggered: false };
+  }
+  const result = await retryWithBackoff(
+    () => triggerFailureCallbackOnce(config, run),
+    { maxAttempts: 3, baseMs: 500, factor: 3 },
+  );
+  if (result && result.__retryExhausted) {
+    return { triggered: true, error: result.error };
+  }
+  return result;
+}
+
+async function deliverPromptResultOnce(scriptResult) {
   const args = ["system", "event", "--mode", "now", "--text", scriptResult.text];
   if (scriptResult.session) {
     args.push("--session", scriptResult.session);
@@ -244,16 +281,27 @@ async function deliverPromptResult(scriptResult) {
   // 8s timeout: delivery is best-effort; a slow/unreachable gateway should not
   // block the wrapper from completing and writing status files.
   const result = await runCommand(["openclaw", ...args], { stdio: "ignore", timeoutMs: 8_000 });
-  return {
-    delivered: result.code === 0,
-    error: result.code !== 0 ? "openclaw event exited with code " + String(result.code) : undefined,
-  };
+  if (result.code !== 0) {
+    throw new Error("openclaw event exited with code " + String(result.code));
+  }
+  return { delivered: true };
 }
 
-async function deliverMessageResult(scriptResult, config) {
+async function deliverPromptResult(scriptResult) {
+  const result = await retryWithBackoff(
+    () => deliverPromptResultOnce(scriptResult),
+    { maxAttempts: 3, baseMs: 500, factor: 3 },
+  );
+  if (result && result.__retryExhausted) {
+    return { delivered: false, error: result.error };
+  }
+  return result;
+}
+
+function deliverMessageResultOnce(scriptResult, config) {
   const deliverPort = config.deliverPort;
   if (!deliverPort) {
-    return { delivered: false, error: "no deliverPort configured — message delivery unavailable" };
+    return Promise.resolve({ delivered: false, error: "no deliverPort configured — message delivery unavailable", __noRetry: true });
   }
 
   const payload = JSON.stringify({
@@ -264,7 +312,7 @@ async function deliverMessageResult(scriptResult, config) {
     jobId: config.jobId,
   });
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const req = http.request(
       {
         hostname: "127.0.0.1",
@@ -277,19 +325,36 @@ async function deliverMessageResult(scriptResult, config) {
         let body = "";
         res.on("data", (chunk) => { body += chunk; });
         res.on("end", () => {
-          resolve({
-            delivered: res.statusCode >= 200 && res.statusCode < 300,
-            error: res.statusCode >= 300 ? "deliver responded with status " + String(res.statusCode) + ": " + body : undefined,
-          });
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve({ delivered: true });
+          } else {
+            reject(new Error("deliver responded with status " + String(res.statusCode) + ": " + body));
+          }
         });
       },
     );
     req.on("error", (err) => {
-      resolve({ delivered: false, error: "deliver request failed: " + String(err.message ?? err) });
+      reject(new Error("deliver request failed: " + String(err.message ?? err)));
     });
     req.write(payload);
     req.end();
   });
+}
+
+async function deliverMessageResult(scriptResult, config) {
+  // Check for missing port before retrying
+  const deliverPort = config.deliverPort;
+  if (!deliverPort) {
+    return { delivered: false, error: "no deliverPort configured — message delivery unavailable" };
+  }
+  const result = await retryWithBackoff(
+    () => deliverMessageResultOnce(scriptResult, config),
+    { maxAttempts: 3, baseMs: 500, factor: 3 },
+  );
+  if (result && result.__retryExhausted) {
+    return { delivered: false, error: result.error };
+  }
+  return result;
 }
 
 async function main() {

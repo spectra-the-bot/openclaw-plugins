@@ -466,6 +466,47 @@ describe("wrapper runner", () => {
     expect(latest?.scriptResult).toEqual({ result: "noop" });
   });
 
+  it("retries failing failure callback up to maxAttempts and records error", async () => {
+    const baseDir = await makeTempDir();
+    const attemptFile = path.join(baseDir, "attempts.txt");
+
+    // Callback script that records each attempt then exits non-zero
+    const callbackScript = [
+      "const fs=require('node:fs');",
+      `const f=${JSON.stringify(attemptFile)};`,
+      "const prev=fs.existsSync(f)?fs.readFileSync(f,'utf8'):'';",
+      "fs.writeFileSync(f, prev+'x');",
+      "process.exit(1);",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-retry-callback",
+        command: [process.execPath, "-e", "process.exit(7)"],
+        failureCallback: {
+          type: "command",
+          command: [process.execPath, "-e", callbackScript],
+        },
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(7);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(false);
+    expect(latest?.failureCallbackTriggered).toBe(true);
+    // Should have recorded an error after exhausting retries
+    expect(latest?.failureCallbackError).toBeDefined();
+    expect(typeof latest?.failureCallbackError).toBe("string");
+
+    // Verify the callback was attempted 3 times
+    const attempts = await fs.readFile(attemptFile, "utf8");
+    expect(attempts).toBe("xxx");
+  }, 15_000);
+
   it("rejects old failure result type from stdout", async () => {
     const baseDir = await makeTempDir();
 
