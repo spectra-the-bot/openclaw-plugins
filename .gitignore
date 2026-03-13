@@ -1,3 +1,5 @@
 node_modules/
 pnpm-lock.yaml.tmp
 .DS_Store
+docs/.vitepress/dist
+docs/.vitepress/cache
