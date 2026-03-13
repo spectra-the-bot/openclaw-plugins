@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { SentinelStateFile, WatcherDefinition, WatcherRuntimeState } from "./types.js";
@@ -9,17 +10,21 @@ export function defaultStatePath(dataDir?: string): string {
 }
 
 export async function loadState(filePath: string): Promise<SentinelStateFile> {
+  let raw: string;
   try {
-    const raw = await fs.readFile(filePath, "utf8");
-    const parsed = JSON.parse(raw) as SentinelStateFile;
-    return {
-      watchers: parsed.watchers ?? [],
-      runtime: parsed.runtime ?? {},
-      updatedAt: parsed.updatedAt ?? new Date().toISOString(),
-    };
-  } catch {
-    return { watchers: [], runtime: {}, updatedAt: new Date().toISOString() };
+    raw = await fs.readFile(filePath, "utf8");
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return { watchers: [], runtime: {}, updatedAt: new Date().toISOString() };
+    }
+    throw err;
   }
+  const parsed = JSON.parse(raw) as SentinelStateFile;
+  return {
+    watchers: parsed.watchers ?? [],
+    runtime: parsed.runtime ?? {},
+    updatedAt: parsed.updatedAt ?? new Date().toISOString(),
+  };
 }
 
 export async function saveState(
@@ -27,13 +32,15 @@ export async function saveState(
   watchers: WatcherDefinition[],
   runtime: Record<string, WatcherRuntimeState>,
 ): Promise<void> {
-  await fs.mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
+  const dir = path.dirname(filePath);
+  await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+  const tmpPath = `${filePath}.${crypto.randomBytes(6).toString("hex")}.tmp`;
   await fs.writeFile(
-    filePath,
+    tmpPath,
     JSON.stringify({ watchers, runtime, updatedAt: new Date().toISOString() }, null, 2),
     { mode: 0o600 },
   );
-  await fs.chmod(filePath, 0o600);
+  await fs.rename(tmpPath, filePath);
 }
 
 export function mergeState(
