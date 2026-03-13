@@ -10,7 +10,12 @@ import {
   type NativeSchedulerBackend,
 } from "./backend.js";
 import { type CronJobInput, createCronAdapter } from "./cron-adapter.js";
-import { type CalendarEntry, createLaunchdAdapter, type LaunchdJobInput } from "./launchd.js";
+import {
+  type CalendarEntry,
+  createLaunchdAdapter,
+  type LaunchdJobInput,
+  resolveUserPath,
+} from "./launchd.js";
 import {
   getDefaultDataDir,
   type JobHealth,
@@ -250,7 +255,11 @@ function requireJob(params: NativeSchedulerToolParams) {
   return job;
 }
 
-function toLaunchdInput(job: NativeSchedulerJob, wrappedCommand: string[]): LaunchdJobInput {
+function toLaunchdInput(
+  job: NativeSchedulerJob,
+  wrappedCommand: string[],
+  plistEnvironment?: Record<string, string>,
+): LaunchdJobInput {
   return {
     id: job.id,
     description: job.description,
@@ -261,6 +270,7 @@ function toLaunchdInput(job: NativeSchedulerJob, wrappedCommand: string[]): Laun
     stdoutPath: job.stdoutPath,
     stderrPath: job.stderrPath,
     disabled: job.disabled,
+    environment: plistEnvironment,
   };
 }
 
@@ -329,10 +339,11 @@ function toAdapterInput(
   backend: string,
   job: NativeSchedulerJob,
   wrappedCommand: string[],
+  plistEnvironment?: Record<string, string>,
 ): unknown {
   switch (backend) {
     case "launchd":
-      return toLaunchdInput(job, wrappedCommand);
+      return toLaunchdInput(job, wrappedCommand, plistEnvironment);
     case "systemd":
       return toSystemdInput(job, wrappedCommand);
     case "cron":
@@ -559,13 +570,29 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
           ? (api.config as Record<string, unknown> & { gateway?: { port?: number } }).gateway?.port
           : undefined;
 
+      // Auto-resolve user PATH for launchd backend (#14)
+      // When the job doesn't explicitly set environment.PATH, probe the user's
+      // login shell to capture Homebrew/nvm/pyenv paths that launchd strips.
+      let resolvedPath: string | undefined;
+      if (backend === "launchd" && !job.environment?.PATH) {
+        resolvedPath = await resolveUserPath();
+        api.logger?.info?.(
+          `[native-scheduler] auto-resolved login-shell PATH for job "${job.id}"`,
+        );
+      }
+
+      // Inject resolved PATH into wrapper config so child processes inherit it
+      const wrapperEnvironment = resolvedPath
+        ? { ...job.environment, PATH: resolvedPath }
+        : job.environment;
+
       const wrapped = await materializeWrapperJob({
         namespace,
         job: {
           id: job.id,
           command: job.command,
           workingDirectory: job.workingDirectory,
-          environment: job.environment,
+          environment: wrapperEnvironment,
           failureCallback: job.failureCallback,
           defaultFailureResult: job.defaultFailureResult,
         },
@@ -573,7 +600,13 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
         deliverPort,
       });
 
-      const upserted = await adapter.upsert(toAdapterInput(backend, job, wrapped.command));
+      // Also inject resolved PATH into plist EnvironmentVariables so the
+      // wrapper Node.js process itself sees the full PATH in process.env
+      const plistEnvironment = resolvedPath ? { PATH: resolvedPath } : undefined;
+
+      const upserted = await adapter.upsert(
+        toAdapterInput(backend, job, wrapped.command, plistEnvironment),
+      );
 
       return {
         ok: true,
