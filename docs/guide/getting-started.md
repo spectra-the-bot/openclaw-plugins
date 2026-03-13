@@ -9,7 +9,7 @@
 ## Installing native-scheduler
 
 ```bash
-openclaw plugin install @spectratools/native-scheduler-plugin
+openclaw plugin install @spectratools/native-scheduler
 ```
 
 Configure in `openclaw.json`:
