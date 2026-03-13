@@ -122,10 +122,19 @@ describe("native_scheduler tool", () => {
 
     const upsert = parsePayload(await tool.execute("1", { action: "upsert" } as any));
     expect(upsert.ok).toBe(false);
-    expect(String(upsert.error)).toContain("job is required");
+    if (process.platform === "darwin") {
+      expect(String(upsert.error)).toContain("job is required");
+    } else {
+      // On non-macOS, launchd adapter throws before reaching job validation
+      expect(String(upsert.error)).toContain("launchd adapter is only available on macOS");
+    }
 
     const failures = parsePayload(await tool.execute("1", { action: "failures" } as any));
     expect(failures.ok).toBe(false);
-    expect(String(failures.error)).toContain("id is required");
+    if (process.platform === "darwin") {
+      expect(String(failures.error)).toContain("id is required");
+    } else {
+      expect(String(failures.error)).toContain("launchd adapter is only available on macOS");
+    }
   });
 });
