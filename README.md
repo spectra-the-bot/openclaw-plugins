@@ -1,101 +1,66 @@
-# @spectratools/native-scheduler-plugin
+# openclaw-plugins
 
-Cross-platform native scheduler plugin for OpenClaw.
-
-## Goals
-
-Provide a single plugin/tool abstraction over:
-
-- macOS `launchd`
-- Linux `systemd timers` and/or `cron`
-- Windows Task Scheduler
-
-The intent is to offload deterministic, zero-token background work from OpenClaw cron when no LLM turn is needed.
+A pnpm monorepo of OpenClaw plugins maintained by [@spectra-the-bot](https://github.com/spectra-the-bot).
 
 ## Packages
 
-This is a pnpm workspace monorepo:
+| Package | Version | Description |
+|---|---|---|
+| [`@spectratools/native-scheduler-plugin`](packages/native-scheduler-plugin/) | 0.1.0 | Cross-platform native OS scheduler plugin for OpenClaw |
+| [`@spectratools/native-scheduler-types`](packages/native-scheduler-types/) | 0.1.0 | Script I/O contract types for native-scheduler |
+| [`@spectratools/sentinel-plugin`](packages/sentinel-plugin/) | 0.9.0 | Secure declarative gateway-native watcher plugin for OpenClaw |
 
-- **`@spectratools/native-scheduler-plugin`** (root) — the OpenClaw plugin
-- **`@spectratools/native-scheduler-types`** (`packages/native-scheduler-types/`) — input/output contract types for user scripts
+## native-scheduler-plugin
 
-## Current status
+Offloads deterministic, zero-token background work from OpenClaw's built-in cron system by scheduling scripts via the platform-native scheduler.
 
-Phase 2 implementation includes:
+**Platform support:**
+- ✅ macOS — `launchd`
+- 🚧 Linux — `systemd timers` / `cron` (planned)
+- 🚧 Windows — Task Scheduler (planned)
 
-- macOS launchd adapter with native `launchctl` integration
-- wrapper-runner model (jobs execute through a generated Node wrapper)
-- **Structured script I/O:** wrapper pipes `NativeSchedulerRunContext` as JSON to script stdin, parses `NativeSchedulerResult` from stdout
-- Fallback to exit-code-based detection when stdout is not valid result JSON
-- Status file schema and storage layout per job (`latest.json`, `health.json`, `runs/*.json`)
-- Optional failure callbacks (`command` or `openclaw-event` target)
-- Health/run inspection actions on the tool (`health`, `last-run`, `failures`)
-- `oxfmt` formatting + CI scaffold
-- Vitest suite covering types, wrapper lifecycle, stdin/stdout contract, and tool behavior
-
-## Script contract
-
-Scripts receive a `NativeSchedulerRunContext` JSON object on stdin:
+**Script contract** — scripts receive a `NativeSchedulerRunContext` JSON on stdin and write a `NativeSchedulerResult` JSON to stdout:
 
 ```ts
+// Input (stdin)
 interface NativeSchedulerRunContext {
   schemaVersion: 1;
   runId: string;
   jobId: string;
   namespace: string;
-  triggeredAt: number; // UTC epoch milliseconds
+  triggeredAt: number; // UTC epoch ms
   platform: string;
   backend: string;
   config: Record<string, unknown>;
 }
-```
 
-Scripts may emit a `NativeSchedulerResult` JSON object on stdout:
-
-```ts
+// Output (stdout)
 type NativeSchedulerResult =
   | { result: "noop" }
-  | { result: "prompt"; text: string }
-  | { result: "failure"; error: string; code?: number };
+  | { result: "prompt"; text: string; session?: string }
+  | { result: "message"; text: string; channel: "discord" | "telegram" | "slack" | "signal" | "imessage" | "whatsapp" | "line"; target?: string };
 ```
 
-If stdout is not valid result JSON, the wrapper falls back to exit-code-based detection (0 = noop, nonzero = failure).
+`prompt` results are delivered to an agent session via `openclaw system event` (costs tokens). `message` results are sent directly to the specified channel with zero tokens.
 
-## Local development
+**Tool actions:** `status` · `list` · `get` · `upsert` · `remove` · `run` · `enable` · `disable` · `health` · `last-run` · `failures` · `logs`
+
+## sentinel-plugin
+
+Declarative HTTP/WebSocket/SSE/EVM watcher plugin. Polls endpoints on a configurable interval, evaluates JSONPath conditions, and fires webhook callbacks to agent sessions when conditions are met.
+
+See the upstream repo for full documentation: [coffeexcoin/openclaw-sentinel](https://github.com/coffeexcoin/openclaw-sentinel)
+
+## Development
 
 ```bash
 pnpm install
-pnpm check        # format:check + typecheck + test (root plugin)
-pnpm -r check     # run checks across all packages
+pnpm check          # biome check + typecheck + test (all packages)
+pnpm lint           # biome lint
+pnpm typecheck      # tsc --noEmit across all packages
+pnpm test           # vitest across all packages
 ```
 
-## Install in OpenClaw
+## CI
 
-Once published:
-
-```bash
-openclaw plugins install @spectratools/native-scheduler-plugin
-```
-
-Then enable/configure it in OpenClaw config.
-
-## Tool surface (current)
-
-- `status`
-- `list`
-- `get`
-- `upsert`
-- `remove`
-- `run`
-- `enable`
-- `disable`
-- `health`
-- `last-run`
-- `failures`
-
-## Notes
-
-- On macOS, `launchd` should be the primary backend, not classic cron.
-- On Linux, `systemd timers` are preferable when available; cron can be fallback.
-- On Windows, use Task Scheduler.
-- The current implementation is intentionally minimal and non-destructive.
+Tests run on ubuntu, macos, and windows via GitHub Actions.
