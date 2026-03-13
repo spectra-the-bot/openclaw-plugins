@@ -20,10 +20,14 @@ async function makeTempDir() {
 }
 
 async function runCommand(command: string[]) {
-  return await new Promise<number>((resolve, reject) => {
-    const child = spawn(command[0]!, command.slice(1), { stdio: "ignore" });
+  return await new Promise<{ code: number; stdout: string }>((resolve, reject) => {
+    const child = spawn(command[0]!, command.slice(1), { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
     child.on("error", reject);
-    child.on("close", (code) => resolve(code ?? 1));
+    child.on("close", (code) => resolve({ code: code ?? 1, stdout }));
   });
 }
 
@@ -39,7 +43,7 @@ describe("wrapper runner", () => {
       },
     });
 
-    const code = await runCommand(wrapped.command);
+    const { code } = await runCommand(wrapped.command);
     expect(code).toBe(0);
 
     const latest = await readJsonIfExists<JobRunStatus>(wrapped.paths.latestPath);
@@ -76,7 +80,7 @@ describe("wrapper runner", () => {
       },
     });
 
-    const code = await runCommand(wrapped.command);
+    const { code } = await runCommand(wrapped.command);
     expect(code).toBe(7);
 
     const latest = await readJsonIfExists<JobRunStatus>(wrapped.paths.latestPath);
@@ -104,5 +108,217 @@ describe("wrapper runner", () => {
         },
       }),
     ).rejects.toThrow(/must contain at least one item/);
+  });
+
+  it("pipes run context to script stdin", async () => {
+    const baseDir = await makeTempDir();
+    const stdinDump = path.join(baseDir, "stdin.json");
+
+    // Script that reads stdin, saves it, and exits 0
+    const script = [
+      "let data = '';",
+      "process.stdin.on('data', c => data += c);",
+      "process.stdin.on('end', () => {",
+      `  require('node:fs').writeFileSync(${JSON.stringify(stdinDump)}, data);`,
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-stdin",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(0);
+
+    const raw = await fs.readFile(stdinDump, "utf8");
+    const ctx = JSON.parse(raw);
+    expect(ctx.schemaVersion).toBe(1);
+    expect(ctx.jobId).toBe("job-stdin");
+    expect(ctx.namespace).toBe("dev.ns");
+    expect(typeof ctx.runId).toBe("string");
+    expect(typeof ctx.triggeredAt).toBe("number");
+    expect(ctx.platform).toBe(process.platform);
+    expect(ctx.backend).toBe("launchd");
+    expect(ctx.config).toEqual({});
+  });
+
+  it("parses noop result from stdout", async () => {
+    const baseDir = await makeTempDir();
+
+    // Script that reads stdin (drains it) then outputs noop result
+    const script = [
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      '  process.stdout.write(JSON.stringify({result:"noop"}));',
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-noop",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(0);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(true);
+    expect(latest?.scriptResult).toEqual({ result: "noop" });
+  });
+
+  it("parses prompt result from stdout", async () => {
+    const baseDir = await makeTempDir();
+
+    const script = [
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      '  process.stdout.write(JSON.stringify({result:"prompt",text:"hello world"}));',
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-prompt",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(0);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(true);
+    expect(latest?.scriptResult).toEqual({ result: "prompt", text: "hello world" });
+  });
+
+  it("parses failure result from stdout (overrides exit code)", async () => {
+    const baseDir = await makeTempDir();
+
+    // Script exits 0 but outputs failure result — structured result should take priority
+    const script = [
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      '  process.stdout.write(JSON.stringify({result:"failure",error:"something broke",code:42}));',
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-failure-result",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    // The wrapper exits with the process exit code (0) regardless of result
+    expect(code).toBe(0);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(false); // structured failure overrides exit code 0
+    expect(latest?.scriptResult).toEqual({ result: "failure", error: "something broke", code: 42 });
+  });
+
+  it("falls back to exit code when stdout is not valid result JSON", async () => {
+    const baseDir = await makeTempDir();
+
+    // Script outputs non-JSON text
+    const script = [
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      "  process.stdout.write('hello this is not json');",
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-fallback",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(0);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(true); // exit code 0 = success fallback
+    expect(latest?.scriptResult).toBeUndefined();
+  });
+
+  it("falls back to exit code when stdout is empty", async () => {
+    const baseDir = await makeTempDir();
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-empty-stdout",
+        command: [
+          process.execPath,
+          "-e",
+          "process.stdin.resume();process.stdin.on('end',()=>process.exit(3))",
+        ],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(3);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(false);
+    expect(latest?.exitCode).toBe(3);
+    expect(latest?.scriptResult).toBeUndefined();
+  });
+
+  it("falls back when stdout is JSON but not a valid result shape", async () => {
+    const baseDir = await makeTempDir();
+
+    const script = [
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      '  process.stdout.write(JSON.stringify({foo:"bar"}));',
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-invalid-shape",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(0);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(true); // fallback: exit 0 = success
+    expect(latest?.scriptResult).toBeUndefined();
   });
 });

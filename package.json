@@ -1,5 +1,5 @@
 {
-  "name": "openclaw-native-scheduler-plugin",
+  "name": "@spectratools/native-scheduler-plugin",
   "version": "0.1.0",
   "description": "Cross-platform native scheduler plugin for OpenClaw",
   "keywords": [
@@ -37,7 +37,8 @@
     "check": "pnpm format:check && pnpm typecheck && pnpm test"
   },
   "dependencies": {
-    "@sinclair/typebox": "^0.34.41"
+    "@sinclair/typebox": "^0.34.41",
+    "@spectratools/native-scheduler-types": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
@@ -55,7 +56,7 @@
       "./index.ts"
     ],
     "install": {
-      "npmSpec": "openclaw-native-scheduler-plugin",
+      "npmSpec": "@spectratools/native-scheduler-plugin",
       "defaultChoice": "npm"
     }
   }

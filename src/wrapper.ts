@@ -69,20 +69,63 @@ function buildRunId() {
   return stamp + "-" + suffix;
 }
 
+function buildRunContext(config, runId) {
+  return {
+    schemaVersion: 1,
+    runId,
+    jobId: config.jobId,
+    namespace: config.namespace,
+    triggeredAt: Date.now(),
+    platform: process.platform,
+    backend: config.backend ?? "launchd",
+    config: config.pluginConfig ?? {},
+  };
+}
+
+function parseScriptResult(stdout) {
+  if (!stdout || !stdout.trim()) return undefined;
+  try {
+    const parsed = JSON.parse(stdout.trim());
+    if (parsed && typeof parsed === "object" && typeof parsed.result === "string") {
+      const validTypes = new Set(["noop", "prompt", "failure"]);
+      if (!validTypes.has(parsed.result)) return undefined;
+      if (parsed.result === "prompt" && typeof parsed.text !== "string") return undefined;
+      if (parsed.result === "failure" && typeof parsed.error !== "string") return undefined;
+      return parsed;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function runCommand(command, options = {}) {
   return new Promise((resolve) => {
     const child = spawn(command[0], command.slice(1), {
       cwd: options.cwd,
       env: options.env,
-      stdio: options.stdio ?? "inherit",
+      stdio: options.stdio ?? ["pipe", "pipe", "inherit"],
     });
 
+    let stdout = "";
+
+    if (options.stdinData != null) {
+      child.stdin.write(options.stdinData);
+      child.stdin.end();
+    } else if (child.stdin) {
+      child.stdin.end();
+    }
+
+    if (child.stdout) {
+      child.stdout.on("data", (chunk) => { stdout += chunk; });
+    }
+
     child.on("error", (error) => {
-      resolve({ code: 127, signal: null, spawnError: error instanceof Error ? error.message : String(error) });
+      resolve({ code: 127, signal: null, stdout, spawnError: error instanceof Error ? error.message : String(error) });
     });
 
     child.on("close", (code, signal) => {
-      resolve({ code: code ?? 1, signal, spawnError: undefined });
+      resolve({ code: code ?? 1, signal, stdout, spawnError: undefined });
     });
   });
 }
@@ -185,14 +228,28 @@ async function main() {
   const startedAtMs = Date.now();
   const startedAt = nowIso();
 
+  const runContext = buildRunContext(config, runId);
+  const stdinData = JSON.stringify(runContext);
+
   const commandResult = await runCommand(config.command, {
     cwd: config.workingDirectory,
     env: { ...process.env, ...(config.environment ?? {}) },
-    stdio: "inherit",
+    stdinData,
   });
 
   const finishedAtMs = Date.now();
   const finishedAt = nowIso();
+
+  const scriptResult = parseScriptResult(commandResult.stdout);
+
+  // Determine success: structured result takes priority, then exit code
+  let success;
+  let exitCode = commandResult.code;
+  if (scriptResult) {
+    success = scriptResult.result !== "failure";
+  } else {
+    success = commandResult.code === 0;
+  }
 
   const run = {
     version: 1,
@@ -205,10 +262,11 @@ async function main() {
     startedAt,
     finishedAt,
     durationMs: Math.max(0, finishedAtMs - startedAtMs),
-    success: commandResult.code === 0,
-    exitCode: commandResult.code,
+    success,
+    exitCode,
     signal: commandResult.signal ?? null,
     spawnError: commandResult.spawnError,
+    scriptResult: scriptResult ?? undefined,
   };
 
   if (!run.success) {
@@ -272,6 +330,8 @@ export async function materializeWrapperJob(
     workingDirectory: options.job.workingDirectory,
     environment: options.job.environment,
     failureCallback: options.job.failureCallback,
+    backend: "launchd",
+    pluginConfig: {},
     paths: {
       runsDir: paths.runsDir,
       latestPath: paths.latestPath,
