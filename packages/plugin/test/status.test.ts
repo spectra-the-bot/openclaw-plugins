@@ -29,7 +29,7 @@ describe("status files", () => {
     const paths = resolveJobPaths("My NS", "Job/One", "/tmp/base");
     expect(paths.namespace).toBe("my-ns");
     expect(paths.jobId).toBe("job-one");
-    expect(paths.rootDir).toBe("/tmp/base/my-ns/job-one");
+    expect(paths.rootDir).toBe(path.join("/tmp/base", "my-ns", "job-one"));
   });
 
   it("updates health counters", () => {

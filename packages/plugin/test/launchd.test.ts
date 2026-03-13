@@ -46,7 +46,9 @@ describe("launchd helpers", () => {
   });
 });
 
-describe("createLaunchdAdapter", () => {
+const describeOnMac = process.platform === "darwin" ? describe : describe.skip;
+
+describeOnMac("createLaunchdAdapter", () => {
   it("constructs launchctl calls for upsert/remove/run/enable/disable", async () => {
     const commands: string[][] = [];
     const files = new Map<string, string>();

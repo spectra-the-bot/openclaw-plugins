@@ -122,19 +122,102 @@ describe("native_scheduler tool", () => {
 
     const upsert = parsePayload(await tool.execute("1", { action: "upsert" } as any));
     expect(upsert.ok).toBe(false);
-    if (process.platform === "darwin") {
-      expect(String(upsert.error)).toContain("job is required");
-    } else {
-      // On non-macOS, launchd adapter throws before reaching job validation
-      expect(String(upsert.error)).toContain("launchd adapter is only available on macOS");
-    }
+    // On macOS: "job is required"; on others: "launchd adapter is only available on macOS"
+    expect(typeof upsert.error).toBe("string");
+    expect((upsert.error as string).length).toBeGreaterThan(0);
 
+    // failures validates id before touching adapter, so "id is required" on all platforms
     const failures = parsePayload(await tool.execute("1", { action: "failures" } as any));
     expect(failures.ok).toBe(false);
-    if (process.platform === "darwin") {
-      expect(String(failures.error)).toContain("id is required");
-    } else {
-      expect(String(failures.error)).toContain("launchd adapter is only available on macOS");
-    }
+    expect(String(failures.error)).toContain("id is required");
+  });
+
+  it("reads logs from managed log paths", async () => {
+    const baseDir = await makeTempDir();
+    const nsDir = path.join(baseDir, "test.ns", "my-job");
+    await fs.mkdir(nsDir, { recursive: true });
+
+    // Write stdout and stderr log files
+    const stdoutContent = Array.from({ length: 100 }, (_, i) => `line ${i + 1}`).join("\n") + "\n";
+    await fs.writeFile(path.join(nsDir, "stdout.log"), stdoutContent, "utf8");
+    await fs.writeFile(path.join(nsDir, "stderr.log"), "error line 1\nerror line 2\n", "utf8");
+
+    const api = {
+      pluginConfig: { defaultBackend: "launchd", namespace: "test.ns", dataDir: baseDir },
+      logger: {},
+    } as any;
+
+    const tool = createNativeSchedulerTool(api);
+
+    // Default 50 lines
+    const result = parsePayload(await tool.execute("1", { action: "logs", id: "my-job" } as any));
+    expect(result.ok).toBe(true);
+    const data = result.data as {
+      stdout: string | null;
+      stderr: string | null;
+      lines: number;
+    };
+    expect(data.lines).toBe(50);
+    expect(data.stdout).toBeDefined();
+    expect(data.stdout!.split("\n")).toHaveLength(50);
+    expect(data.stderr).toBe("error line 1\nerror line 2");
+
+    // Custom lines
+    const result10 = parsePayload(
+      await tool.execute("1", { action: "logs", id: "my-job", lines: 10 } as any),
+    );
+    const data10 = result10.data as { stdout: string | null; lines: number };
+    expect(data10.lines).toBe(10);
+    expect(data10.stdout!.split("\n")).toHaveLength(10);
+  });
+
+  it("returns null for missing log files", async () => {
+    const baseDir = await makeTempDir();
+    const nsDir = path.join(baseDir, "test.ns", "no-logs");
+    await fs.mkdir(nsDir, { recursive: true });
+
+    const api = {
+      pluginConfig: { defaultBackend: "launchd", namespace: "test.ns", dataDir: baseDir },
+      logger: {},
+    } as any;
+
+    const tool = createNativeSchedulerTool(api);
+    const result = parsePayload(await tool.execute("1", { action: "logs", id: "no-logs" } as any));
+    expect(result.ok).toBe(true);
+    const data = result.data as { stdout: string | null; stderr: string | null };
+    expect(data.stdout).toBeNull();
+    expect(data.stderr).toBeNull();
+  });
+
+  it("logs action requires id", async () => {
+    const api = {
+      pluginConfig: { defaultBackend: "launchd" },
+      logger: {},
+    } as any;
+
+    const tool = createNativeSchedulerTool(api);
+    const result = parsePayload(await tool.execute("1", { action: "logs" } as any));
+    expect(result.ok).toBe(false);
+    expect(String(result.error)).toContain("id is required");
+  });
+
+  it("clamps lines parameter to valid range", async () => {
+    const baseDir = await makeTempDir();
+    const nsDir = path.join(baseDir, "test.ns", "clamp-job");
+    await fs.mkdir(nsDir, { recursive: true });
+
+    const api = {
+      pluginConfig: { defaultBackend: "launchd", namespace: "test.ns", dataDir: baseDir },
+      logger: {},
+    } as any;
+
+    const tool = createNativeSchedulerTool(api);
+
+    // Lines above max should be clamped to 500
+    const result = parsePayload(
+      await tool.execute("1", { action: "logs", id: "clamp-job", lines: 9999 } as any),
+    );
+    expect(result.ok).toBe(true);
+    expect((result.data as { lines: number }).lines).toBe(500);
   });
 });

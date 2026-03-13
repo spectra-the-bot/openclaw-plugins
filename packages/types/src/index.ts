@@ -22,21 +22,26 @@ export interface NativeSchedulerRunContext {
 // ── Output: parsed from script stdout ─────────────────────────────────
 
 export type NativeSchedulerNoopResult = { result: "noop" };
-export type NativeSchedulerPromptResult = { result: "prompt"; text: string };
-export type NativeSchedulerFailureResult = {
-  result: "failure";
-  error: string;
-  code?: number;
+export type NativeSchedulerPromptResult = {
+  result: "prompt";
+  text: string;
+  session?: string;
+};
+export type NativeSchedulerMessageResult = {
+  result: "message";
+  text: string;
+  channel: string;
+  target?: string;
 };
 
 export type NativeSchedulerResult =
   | NativeSchedulerNoopResult
   | NativeSchedulerPromptResult
-  | NativeSchedulerFailureResult;
+  | NativeSchedulerMessageResult;
 
 // ── Validation helpers ────────────────────────────────────────────────
 
-const VALID_RESULT_TYPES = new Set(["noop", "prompt", "failure"]);
+const VALID_RESULT_TYPES = new Set(["noop", "prompt", "message"]);
 
 /**
  * Type guard: is the value a valid NativeSchedulerRunContext?
@@ -71,11 +76,15 @@ export function isResult(value: unknown): value is NativeSchedulerResult {
     case "noop":
       return true;
     case "prompt":
-      return typeof obj.text === "string";
-    case "failure":
       return (
-        typeof obj.error === "string" &&
-        (obj.code === undefined || (typeof obj.code === "number" && Number.isFinite(obj.code)))
+        typeof obj.text === "string" &&
+        (obj.session === undefined || typeof obj.session === "string")
+      );
+    case "message":
+      return (
+        typeof obj.text === "string" &&
+        typeof obj.channel === "string" &&
+        (obj.target === undefined || typeof obj.target === "string")
       );
     default:
       return false;

@@ -78,12 +78,18 @@ describe("isResult", () => {
     expect(isResult({ result: "prompt", text: "hello" })).toBe(true);
   });
 
-  it("accepts failure with error", () => {
-    expect(isResult({ result: "failure", error: "boom" })).toBe(true);
+  it("accepts prompt with text and session", () => {
+    expect(isResult({ result: "prompt", text: "hello", session: "agent:main" })).toBe(true);
   });
 
-  it("accepts failure with error and code", () => {
-    expect(isResult({ result: "failure", error: "boom", code: 42 })).toBe(true);
+  it("accepts message with text and channel", () => {
+    expect(isResult({ result: "message", text: "hi", channel: "discord" })).toBe(true);
+  });
+
+  it("accepts message with text, channel, and target", () => {
+    expect(isResult({ result: "message", text: "hi", channel: "discord", target: "general" })).toBe(
+      true,
+    );
   });
 
   it("rejects null", () => {
@@ -94,6 +100,10 @@ describe("isResult", () => {
     expect(isResult({ result: "unknown" })).toBe(false);
   });
 
+  it("rejects old failure result type", () => {
+    expect(isResult({ result: "failure", error: "boom" })).toBe(false);
+  });
+
   it("rejects prompt without text", () => {
     expect(isResult({ result: "prompt" })).toBe(false);
   });
@@ -102,13 +112,26 @@ describe("isResult", () => {
     expect(isResult({ result: "prompt", text: 42 })).toBe(false);
   });
 
-  it("rejects failure without error", () => {
-    expect(isResult({ result: "failure" })).toBe(false);
+  it("rejects prompt with non-string session", () => {
+    expect(isResult({ result: "prompt", text: "hi", session: 42 })).toBe(false);
   });
 
-  it("rejects failure with non-finite code", () => {
-    expect(isResult({ result: "failure", error: "x", code: NaN })).toBe(false);
-    expect(isResult({ result: "failure", error: "x", code: Infinity })).toBe(false);
+  it("rejects message without text", () => {
+    expect(isResult({ result: "message", channel: "discord" })).toBe(false);
+  });
+
+  it("rejects message without channel", () => {
+    expect(isResult({ result: "message", text: "hi" })).toBe(false);
+  });
+
+  it("rejects message with non-string channel", () => {
+    expect(isResult({ result: "message", text: "hi", channel: 123 })).toBe(false);
+  });
+
+  it("rejects message with non-string target", () => {
+    expect(isResult({ result: "message", text: "hi", channel: "discord", target: 123 })).toBe(
+      false,
+    );
   });
 
   it("accepts noop with extra fields (lenient)", () => {
@@ -126,12 +149,33 @@ describe("parseResult", () => {
     expect(r).toEqual({ result: "prompt", text: "hi" });
   });
 
+  it("parses valid prompt JSON with session", () => {
+    const r = parseResult('{"result":"prompt","text":"hi","session":"s1"}');
+    expect(r).toEqual({ result: "prompt", text: "hi", session: "s1" });
+  });
+
+  it("parses valid message JSON", () => {
+    const r = parseResult('{"result":"message","text":"hi","channel":"discord"}');
+    expect(r).toEqual({ result: "message", text: "hi", channel: "discord" });
+  });
+
+  it("parses valid message JSON with target", () => {
+    const r = parseResult(
+      '{"result":"message","text":"hi","channel":"discord","target":"general"}',
+    );
+    expect(r).toEqual({ result: "message", text: "hi", channel: "discord", target: "general" });
+  });
+
   it("returns undefined for invalid JSON", () => {
     expect(parseResult("not json")).toBeUndefined();
   });
 
   it("returns undefined for valid JSON but invalid result", () => {
     expect(parseResult('{"result":"unknown"}')).toBeUndefined();
+  });
+
+  it("returns undefined for old failure result", () => {
+    expect(parseResult('{"result":"failure","error":"boom"}')).toBeUndefined();
   });
 
   it("returns undefined for empty string", () => {
@@ -159,8 +203,24 @@ describe("assertResult", () => {
     expect(assertResult(r)).toEqual(r);
   });
 
+  it("returns valid prompt result", () => {
+    const r: NativeSchedulerResult = { result: "prompt", text: "hi", session: "s1" };
+    expect(assertResult(r)).toEqual(r);
+  });
+
+  it("returns valid message result", () => {
+    const r: NativeSchedulerResult = { result: "message", text: "hi", channel: "discord" };
+    expect(assertResult(r)).toEqual(r);
+  });
+
   it("throws on invalid result", () => {
     expect(() => assertResult({ result: "bad" })).toThrow("Invalid NativeSchedulerResult");
+  });
+
+  it("throws on old failure result", () => {
+    expect(() => assertResult({ result: "failure", error: "boom" })).toThrow(
+      "Invalid NativeSchedulerResult",
+    );
   });
 });
 

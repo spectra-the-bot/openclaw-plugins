@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { NativeSchedulerResult } from "@spectratools/native-scheduler-types";
 import { resolveJobPaths, type JobPaths } from "./status.js";
 
 export type FailureCallbackTarget =
@@ -21,6 +22,7 @@ export type WrapperJobInput = {
   workingDirectory?: string;
   environment?: Record<string, string>;
   failureCallback?: FailureCallbackTarget;
+  defaultFailureResult?: NativeSchedulerResult;
 };
 
 export type WrapperMaterializeOptions = {
@@ -39,6 +41,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
+import http from "node:http";
 
 async function readConfig(filePath) {
   const raw = await fs.readFile(filePath, "utf8");
@@ -87,10 +90,10 @@ function parseScriptResult(stdout) {
   try {
     const parsed = JSON.parse(stdout.trim());
     if (parsed && typeof parsed === "object" && typeof parsed.result === "string") {
-      const validTypes = new Set(["noop", "prompt", "failure"]);
+      const validTypes = new Set(["noop", "prompt", "message"]);
       if (!validTypes.has(parsed.result)) return undefined;
       if (parsed.result === "prompt" && typeof parsed.text !== "string") return undefined;
-      if (parsed.result === "failure" && typeof parsed.error !== "string") return undefined;
+      if (parsed.result === "message" && (typeof parsed.text !== "string" || typeof parsed.channel !== "string")) return undefined;
       return parsed;
     }
     return undefined;
@@ -215,6 +218,60 @@ async function triggerFailureCallback(config, run) {
   return { triggered: false, error: "unsupported callback type" };
 }
 
+async function deliverPromptResult(scriptResult) {
+  const args = ["system", "event", "--mode", "now", "--text", scriptResult.text];
+  if (scriptResult.session) {
+    args.push("--session", scriptResult.session);
+  }
+  const result = await runCommand(["openclaw", ...args], { stdio: "ignore" });
+  return {
+    delivered: result.code === 0,
+    error: result.code !== 0 ? "openclaw event exited with code " + String(result.code) : undefined,
+  };
+}
+
+async function deliverMessageResult(scriptResult, config) {
+  const deliverPort = config.deliverPort;
+  if (!deliverPort) {
+    return { delivered: false, error: "no deliverPort configured — message delivery unavailable" };
+  }
+
+  const payload = JSON.stringify({
+    text: scriptResult.text,
+    channel: scriptResult.channel,
+    target: scriptResult.target,
+    namespace: config.namespace,
+    jobId: config.jobId,
+  });
+
+  return new Promise((resolve) => {
+    const req = http.request(
+      {
+        hostname: "127.0.0.1",
+        port: deliverPort,
+        path: "/native-scheduler/deliver",
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) },
+      },
+      (res) => {
+        let body = "";
+        res.on("data", (chunk) => { body += chunk; });
+        res.on("end", () => {
+          resolve({
+            delivered: res.statusCode >= 200 && res.statusCode < 300,
+            error: res.statusCode >= 300 ? "deliver responded with status " + String(res.statusCode) + ": " + body : undefined,
+          });
+        });
+      },
+    );
+    req.on("error", (err) => {
+      resolve({ delivered: false, error: "deliver request failed: " + String(err.message ?? err) });
+    });
+    req.write(payload);
+    req.end();
+  });
+}
+
 async function main() {
   const configPath = process.argv[2];
   if (!configPath) {
@@ -240,16 +297,17 @@ async function main() {
   const finishedAtMs = Date.now();
   const finishedAt = nowIso();
 
-  const scriptResult = parseScriptResult(commandResult.stdout);
+  let scriptResult = parseScriptResult(commandResult.stdout);
 
-  // Determine success: structured result takes priority, then exit code
-  let success;
-  let exitCode = commandResult.code;
-  if (scriptResult) {
-    success = scriptResult.result !== "failure";
-  } else {
-    success = commandResult.code === 0;
+  // Apply defaultFailureResult when script crashes, times out, or produces no valid output
+  const scriptFailed = commandResult.code !== 0 || commandResult.spawnError;
+  if (!scriptResult && scriptFailed && config.defaultFailureResult) {
+    scriptResult = config.defaultFailureResult;
   }
+
+  // Determine success: exit code based (no more "failure" result type)
+  let success = commandResult.code === 0;
+  let exitCode = commandResult.code;
 
   const run = {
     version: 1,
@@ -268,6 +326,17 @@ async function main() {
     spawnError: commandResult.spawnError,
     scriptResult: scriptResult ?? undefined,
   };
+
+  // Deliver results based on type
+  if (scriptResult) {
+    if (scriptResult.result === "prompt") {
+      const delivery = await deliverPromptResult(scriptResult);
+      run.promptDelivery = delivery;
+    } else if (scriptResult.result === "message") {
+      const delivery = await deliverMessageResult(scriptResult, config);
+      run.messageDelivery = delivery;
+    }
+  }
 
   if (!run.success) {
     const callback = await triggerFailureCallback(config, run);
@@ -323,7 +392,7 @@ export async function materializeWrapperJob(
   const paths = resolveJobPaths(options.namespace, options.job.id, options.dataDir);
   await fs.mkdir(paths.rootDir, { recursive: true });
 
-  const runtimeConfig = {
+  const runtimeConfig: Record<string, unknown> = {
     namespace: paths.namespace,
     jobId: paths.jobId,
     command: options.job.command,
@@ -338,6 +407,10 @@ export async function materializeWrapperJob(
       healthPath: paths.healthPath,
     },
   };
+
+  if (options.job.defaultFailureResult) {
+    runtimeConfig.defaultFailureResult = options.job.defaultFailureResult;
+  }
 
   await fs.writeFile(
     paths.wrapperConfigPath,

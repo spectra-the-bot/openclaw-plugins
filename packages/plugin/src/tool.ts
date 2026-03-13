@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Type } from "@sinclair/typebox";
 import type { AnyAgentTool, OpenClawPluginApi } from "openclaw/plugin-sdk/core";
+import type { NativeSchedulerResult as ScriptResult } from "@spectratools/native-scheduler-types";
 import {
   getBackendStatus,
   getConfiguredBackend,
@@ -54,6 +55,27 @@ const FailureCallbackSchema = Type.Union([
   ),
 ]);
 
+const DefaultFailureResultSchema = Type.Union([
+  Type.Object({ result: Type.Literal("noop") }, { additionalProperties: false }),
+  Type.Object(
+    {
+      result: Type.Literal("prompt"),
+      text: Type.String(),
+      session: Type.Optional(Type.String()),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      result: Type.Literal("message"),
+      text: Type.String(),
+      channel: Type.String(),
+      target: Type.Optional(Type.String()),
+    },
+    { additionalProperties: false },
+  ),
+]);
+
 const JobSchema = Type.Object(
   {
     id: Type.String({
@@ -81,6 +103,12 @@ const JobSchema = Type.Object(
     stderrPath: Type.Optional(Type.String()),
     disabled: Type.Optional(Type.Boolean()),
     failureCallback: Type.Optional(FailureCallbackSchema),
+    defaultFailureResult: Type.Optional(
+      Type.Composite([DefaultFailureResultSchema], {
+        description:
+          "Result to fire when the script crashes, times out, or produces no valid output. Defaults to { result: 'noop' } if not specified.",
+      }),
+    ),
   },
   { additionalProperties: false },
 );
@@ -99,6 +127,7 @@ const NativeSchedulerToolSchema = Type.Object(
       Type.Literal("health"),
       Type.Literal("last-run"),
       Type.Literal("failures"),
+      Type.Literal("logs"),
     ]),
     backend: Type.Optional(
       Type.Union([
@@ -113,6 +142,13 @@ const NativeSchedulerToolSchema = Type.Object(
     namespace: Type.Optional(Type.String({ minLength: 1 })),
     job: Type.Optional(JobSchema),
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+    lines: Type.Optional(
+      Type.Integer({
+        minimum: 1,
+        maximum: 500,
+        description: "Number of log lines to return (default 50, max 500). Used with logs action.",
+      }),
+    ),
   },
   { additionalProperties: false },
 );
@@ -130,6 +166,7 @@ type NativeSchedulerJob = {
   stderrPath?: string;
   disabled?: boolean;
   failureCallback?: FailureCallbackTarget;
+  defaultFailureResult?: ScriptResult;
 };
 
 type NativeSchedulerToolParams = {
@@ -144,12 +181,14 @@ type NativeSchedulerToolParams = {
     | "disable"
     | "health"
     | "last-run"
-    | "failures";
+    | "failures"
+    | "logs";
   backend?: NativeSchedulerBackend | "auto";
   id?: string;
   namespace?: string;
   job?: NativeSchedulerJob;
   limit?: number;
+  lines?: number;
 };
 
 type NativeSchedulerResult = {
@@ -238,6 +277,30 @@ async function listHealthForNamespace(dataDir: string, namespace: string) {
   return items;
 }
 
+async function readLogTail(filePath: string | undefined, lines: number): Promise<string | null> {
+  if (!filePath) return null;
+  try {
+    const content = await fs.readFile(filePath, "utf8");
+    const allLines = content.split("\n");
+    // Take last N lines (trim trailing empty line from split)
+    const trimmed =
+      allLines.length > 0 && allLines[allLines.length - 1] === ""
+        ? allLines.slice(0, -1)
+        : allLines;
+    return trimmed.slice(-lines).join("\n");
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "ENOENT"
+    ) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerToolParams) {
   const namespace = resolveNamespace(api, params);
   const backend = resolveBackend(api, params);
@@ -252,6 +315,62 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
       data: {
         ...getBackendStatus(backend, namespace),
         dataDir,
+      },
+    } satisfies NativeSchedulerResult;
+  }
+
+  if (params.action === "logs") {
+    const id = requireId(params);
+    const lines = Math.min(Math.max(params.lines ?? 50, 1), 500);
+
+    // Find stdout/stderr paths from the wrapper config
+    const paths = resolveJobPaths(namespace, id, dataDir);
+    const config = await readJsonIfExists<Record<string, unknown>>(paths.wrapperConfigPath);
+
+    // Try to read from configured paths in the launchd plist via the job's managed log paths
+    // Fall back to discovering them from the wrapper config or job schema defaults
+    let stdoutPath: string | undefined;
+    let stderrPath: string | undefined;
+
+    if (config) {
+      // The wrapper config doesn't store stdoutPath/stderrPath directly,
+      // but we can read the launchd plist to find them. For simplicity,
+      // let the agent pass the job id and we look for any .plist references.
+      // Actually — the job schema stores these. We'll look up the latest run for metadata.
+    }
+
+    // The actual stdout/stderr paths come from the job's launchd plist configuration.
+    // Since we don't store them in the wrapper config, we read them from the
+    // upserted job's launchd agent plist. For now, read from the namespace data dir
+    // as a convention: <dataDir>/<ns>/<id>/stdout.log and stderr.log
+    // OR from whatever the user configured as stdoutPath/stderrPath on the job.
+    // Best approach: check the latest run for any info, and support explicit paths.
+
+    // For maximum utility, we look at the job's configured paths by checking
+    // the launchd plist. We can also accept stdoutPath/stderrPath from the params
+    // in future. For now, we use a simple convention + the data we have.
+
+    // Attempt: read from common log locations
+    const stdoutDefault = path.join(paths.rootDir, "stdout.log");
+    const stderrDefault = path.join(paths.rootDir, "stderr.log");
+
+    const stdout = await readLogTail(stdoutDefault, lines);
+    const stderr = await readLogTail(stderrDefault, lines);
+
+    return {
+      ok: true,
+      action: params.action,
+      backend,
+      namespace,
+      data: {
+        job: id,
+        lines,
+        stdout,
+        stderr,
+        paths: {
+          stdout: stdoutDefault,
+          stderr: stderrDefault,
+        },
       },
     } satisfies NativeSchedulerResult;
   }
@@ -352,6 +471,7 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
           workingDirectory: job.workingDirectory,
           environment: job.environment,
           failureCallback: job.failureCallback,
+          defaultFailureResult: job.defaultFailureResult,
         },
         dataDir,
       });
@@ -430,7 +550,7 @@ export function createNativeSchedulerTool(api: OpenClawPluginApi): AnyAgentTool 
   return {
     name: "native_scheduler",
     description:
-      "Manage native OS scheduler jobs. Current implementation supports macOS launchd with wrapper-run metadata and failure callbacks.",
+      "Manage native OS scheduler jobs. Current implementation supports macOS launchd with wrapper-run metadata, failure callbacks, and result delivery (prompt/message/noop).",
     parameters: NativeSchedulerToolSchema,
     async execute(_id, params: NativeSchedulerToolParams) {
       try {
