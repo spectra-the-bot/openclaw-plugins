@@ -11,10 +11,14 @@
     "check": "biome check . && pnpm typecheck && pnpm test",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "changeset": "changeset",
+    "changeset:version": "changeset version && pnpm biome format --write packages/*/package.json"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
+    "@changesets/changelog-github": "^0.5.1",
+    "@changesets/cli": "^2.27.12",
     "vitepress": "^1.6.4"
   },
   "engines": {

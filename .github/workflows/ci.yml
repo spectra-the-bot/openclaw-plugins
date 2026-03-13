@@ -1,36 +1,88 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  push:
+    branches:
+      - main
 
 jobs:
-  lint:
+  ci:
+    name: CI
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v4
         with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec biome check --diagnostic-level=error .
-      - run: pnpm typecheck
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate changesets
+        if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/')
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+            git fetch --no-tags --prune --unshallow origin
+          fi
+
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+
+          CHANGED_FILES="$(git diff --name-only "$BASE_SHA" HEAD)"
+
+          if ! echo "$CHANGED_FILES" | grep -q "^packages/"; then
+            echo "No package changes detected, skipping changeset check"
+            exit 0
+          fi
+
+          NON_VERSION_PACKAGE_CHANGES="$(echo "$CHANGED_FILES" | grep "^packages/" | grep -Ev '^packages/[^/]+/(CHANGELOG\.md|package\.json)$' || true)"
+          if [ -z "$NON_VERSION_PACKAGE_CHANGES" ]; then
+            echo "Only package version files changed (CHANGELOG.md/package.json), skipping changeset check"
+            exit 0
+          fi
+
+          if ! npx --yes @changesets/cli status --since "$BASE_SHA"; then
+            echo "One or more packages were modified without a changeset. Run 'pnpm changeset' to add one."
+            exit 1
+          fi
+
+      - name: Lint & format check
+        run: pnpm exec biome check --diagnostic-level=error .
+
+      - name: Type check
+        run: pnpm typecheck
 
   test:
+    name: Test (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
