@@ -46,7 +46,7 @@ describe("loadState", () => {
     await expect(loadState(filePath)).rejects.toThrow();
   });
 
-  it("throws on permission error (EACCES)", async () => {
+  it.skipIf(process.platform === "win32")("throws on permission error (EACCES)", async () => {
     const filePath = path.join(tmpDir, "noperm.json");
     await fs.writeFile(filePath, JSON.stringify({ watchers: [], runtime: {} }));
     await fs.chmod(filePath, 0o000);
