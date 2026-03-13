@@ -235,7 +235,19 @@ function requireJob(params: NativeSchedulerToolParams) {
   if (!params.job) {
     throw new Error("job is required for upsert");
   }
-  return params.job;
+  const { job } = params;
+  if (!Array.isArray(job.command) || job.command.length === 0) {
+    throw new Error("job.command must be a non-empty array");
+  }
+  if (!job.command[0].startsWith("/")) {
+    throw new Error(
+      `job.command[0] must be an absolute path (received: "${job.command[0]}"). ` +
+        `Use the full path to the executable (e.g. /opt/homebrew/bin/node, /usr/bin/python3). ` +
+        `Relative paths and bare executable names are not supported because launchd runs jobs ` +
+        `with a restricted PATH (/usr/bin:/bin:/usr/sbin:/sbin).`,
+    );
+  }
+  return job;
 }
 
 function toLaunchdInput(job: NativeSchedulerJob, wrappedCommand: string[]): LaunchdJobInput {
@@ -541,6 +553,12 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
       } satisfies NativeSchedulerResult;
     case "upsert": {
       const job = requireJob(params);
+      const deliverPort =
+        typeof (api.config as Record<string, unknown> & { gateway?: { port?: number } })?.gateway
+          ?.port === "number"
+          ? (api.config as Record<string, unknown> & { gateway?: { port?: number } }).gateway?.port
+          : undefined;
+
       const wrapped = await materializeWrapperJob({
         namespace,
         job: {
@@ -552,6 +570,7 @@ async function executeAction(api: OpenClawPluginApi, params: NativeSchedulerTool
           defaultFailureResult: job.defaultFailureResult,
         },
         dataDir,
+        deliverPort,
       });
 
       const upserted = await adapter.upsert(toAdapterInput(backend, job, wrapped.command));

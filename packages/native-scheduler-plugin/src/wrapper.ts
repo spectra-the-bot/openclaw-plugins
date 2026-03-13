@@ -28,6 +28,8 @@ export type WrapperMaterializeOptions = {
   namespace: string;
   job: WrapperJobInput;
   dataDir?: string;
+  /** Port of the OpenClaw gateway HTTP server. Used for zero-token message delivery. */
+  deliverPort?: number;
 };
 
 export type WrapperMaterialized = {
@@ -495,6 +497,10 @@ export async function materializeWrapperJob(
 
   if (options.job.defaultFailureResult) {
     runtimeConfig.defaultFailureResult = options.job.defaultFailureResult;
+  }
+
+  if (options.deliverPort) {
+    runtimeConfig.deliverPort = options.deliverPort;
   }
 
   await fs.writeFile(

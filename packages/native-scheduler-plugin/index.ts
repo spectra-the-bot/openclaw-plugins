@@ -42,6 +42,20 @@ export default function register(api: OpenClawPluginApi) {
         const cfg = api.config;
         const ch = api.runtime.channel;
 
+        // Validate channel-specific target formats before attempting delivery.
+        if (channel === "discord" && !target.startsWith("channel:") && !target.startsWith("user:")) {
+          res.writeHead(400);
+          res.end(
+            JSON.stringify({
+              error:
+                `Invalid Discord target "${target}". ` +
+                `Use "channel:<id>" for channel messages (e.g. "channel:1234567890") ` +
+                `or "user:<id>" for DMs (e.g. "user:1234567890").`,
+            }),
+          );
+          return;
+        }
+
         switch (channel) {
           case "discord":
             await ch.discord.sendMessageDiscord(target, text, { cfg });
