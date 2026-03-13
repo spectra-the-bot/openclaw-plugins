@@ -7,12 +7,13 @@ export default function register(api: OpenClawPluginApi) {
 
   // Register HTTP route for zero-token message delivery from the wrapper.
   // The wrapper POSTs { text, channel, target } here when a script emits
-  // { result: "message" }. This path avoids triggering an LLM turn.
+  // { result: "message" }. This path bypasses the LLM entirely — no agent turn,
+  // no tokens.
   api.registerHttpRoute({
     path: "/native-scheduler/deliver",
     auth: "plugin",
     match: "exact",
-    async handler(req: IncomingMessage, res: ServerResponse) {
+    handler: async (req: IncomingMessage, res: ServerResponse) => {
       if (req.method !== "POST") {
         res.writeHead(405);
         res.end(JSON.stringify({ error: "method not allowed" }));
@@ -20,8 +21,7 @@ export default function register(api: OpenClawPluginApi) {
       }
 
       try {
-        const body = await readBody(req);
-        const { text, channel, target } = JSON.parse(body) as {
+        const { text, channel, target } = JSON.parse(await readBody(req)) as {
           text?: string;
           channel?: string;
           target?: string;
@@ -33,27 +33,53 @@ export default function register(api: OpenClawPluginApi) {
           return;
         }
 
-        // Use the runtime's channel-specific send functions for zero-token delivery.
-        const runtime = api.runtime;
-
-        if (channel === "discord" && runtime.channel?.discord?.sendMessageDiscord) {
-          await runtime.channel.discord.sendMessageDiscord(target ?? "", text);
-          res.writeHead(200);
-          res.end(JSON.stringify({ ok: true }));
-        } else if (channel === "telegram" && runtime.channel?.telegram?.sendMessageTelegram) {
-          await runtime.channel.telegram.sendMessageTelegram(target ?? "", text);
-          res.writeHead(200);
-          res.end(JSON.stringify({ ok: true }));
-        } else {
-          // Fallback: channel not available or not supported
-          res.writeHead(501);
-          res.end(
-            JSON.stringify({
-              error: `channel "${channel}" delivery not implemented — use prompt result instead`,
-            }),
-          );
+        if (!target) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: "target is required for message delivery" }));
+          return;
         }
+
+        const cfg = api.config;
+        const ch = api.runtime.channel;
+
+        switch (channel) {
+          case "discord":
+            await ch.discord.sendMessageDiscord(target, text, { cfg });
+            break;
+          case "telegram":
+            await ch.telegram.sendMessageTelegram(target, text, { cfg });
+            break;
+          case "slack":
+            await ch.slack.sendMessageSlack(target, text, { cfg });
+            break;
+          case "signal":
+            await ch.signal.sendMessageSignal(target, text, { cfg });
+            break;
+          case "imessage":
+            await ch.imessage.sendMessageIMessage(target, text);
+            break;
+          case "whatsapp":
+            await ch.whatsapp.sendMessageWhatsApp(target, text, { verbose: false, cfg });
+            break;
+          case "line":
+            await ch.line.sendMessageLine(target, text, { cfg });
+            break;
+          default:
+            res.writeHead(501);
+            res.end(
+              JSON.stringify({
+                error: `channel "${channel}" is not supported — supported: discord, telegram, slack, signal, imessage, whatsapp, line`,
+              }),
+            );
+            return;
+        }
+
+        res.writeHead(200);
+        res.end(JSON.stringify({ ok: true, channel, target }));
       } catch (error) {
+        api.logger.error?.(
+          `[native-scheduler] message delivery error: ${error instanceof Error ? error.message : String(error)}`,
+        );
         res.writeHead(500);
         res.end(
           JSON.stringify({
