@@ -226,7 +226,7 @@ async function triggerFailureCallback(config, run) {
       "--text",
       text,
     ];
-    const result = await runCommand(["openclaw", ...args], { env, stdio: "ignore" });
+    const result = await runCommand(["openclaw", ...args], { env, stdio: "ignore", timeoutMs: 8_000 });
     if (result.code !== 0) {
       return { triggered: true, error: "openclaw event exited with code " + String(result.code) };
     }
@@ -241,7 +241,9 @@ async function deliverPromptResult(scriptResult) {
   if (scriptResult.session) {
     args.push("--session", scriptResult.session);
   }
-  const result = await runCommand(["openclaw", ...args], { stdio: "ignore" });
+  // 8s timeout: delivery is best-effort; a slow/unreachable gateway should not
+  // block the wrapper from completing and writing status files.
+  const result = await runCommand(["openclaw", ...args], { stdio: "ignore", timeoutMs: 8_000 });
   return {
     delivered: result.code === 0,
     error: result.code !== 0 ? "openclaw event exited with code " + String(result.code) : undefined,
