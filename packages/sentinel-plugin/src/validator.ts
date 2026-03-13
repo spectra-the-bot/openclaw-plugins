@@ -97,7 +97,14 @@ function createWatcherSchema(maxOperatorGoalChars: number) {
           operatorGoal: Type.Optional(
             Type.String({ minLength: 1, maxLength: maxOperatorGoalChars }),
           ),
-          operatorGoalFile: Type.Optional(Type.String({ minLength: 1, pattern: "^(/|~)" })),
+          operatorGoalFile: Type.Optional(
+            Type.String({
+              minLength: 1,
+              maxLength: 256,
+              // relative path: no leading slash/tilde, no .. traversal
+              pattern: "^(?!\\.\\.)(?!.*\\/\\.\\.[/]?)(?!.*\\/\\.\\.$)[^/~\\x00][^\\x00]*$",
+            }),
+          ),
           model: Type.Optional(Type.String({ minLength: 1 })),
         },
         { additionalProperties: false },

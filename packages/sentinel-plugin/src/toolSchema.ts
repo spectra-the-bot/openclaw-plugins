@@ -94,8 +94,9 @@ const FireConfigSchema = Type.Object({
   operatorGoalFile: Type.Optional(
     Type.String({
       minLength: 1,
+      maxLength: 256,
       description:
-        "Absolute path to a policy/config file read fresh each time the watcher fires. Contents are injected as runtime context alongside operatorGoal, ensuring callbacks always use current policy values.",
+        "Relative path within sentinel's operator-goals directory (e.g. 'my-policy.md'). Read fresh each fire. Contents are injected as runtime context alongside operatorGoal.",
     }),
   ),
   model: Type.Optional(
@@ -239,6 +240,13 @@ const CreateActionSchema = Type.Object(
   {
     action: CreateActionNameSchema,
     watcher: WatcherSchema,
+    operatorGoalContent: Type.Optional(
+      Type.String({
+        minLength: 1,
+        description:
+          "Inline content to write to the operatorGoalFile path within sentinel's operator-goals directory. Requires operatorGoalFile to be set on the watcher.",
+      }),
+    ),
   },
   { additionalProperties: false },
 );
@@ -280,6 +288,13 @@ export const SentinelToolSchema = Type.Object(
         pattern: WATCHER_ID_PATTERN,
         maxLength: 128,
         description: "Watcher ID for action target",
+      }),
+    ),
+    operatorGoalContent: Type.Optional(
+      Type.String({
+        minLength: 1,
+        description:
+          "Inline content to write to the operatorGoalFile path within sentinel's operator-goals directory. Requires operatorGoalFile to be set on the watcher.",
       }),
     ),
   },

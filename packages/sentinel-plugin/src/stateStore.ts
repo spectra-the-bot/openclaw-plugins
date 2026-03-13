@@ -1,10 +1,11 @@
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import type { SentinelStateFile, WatcherDefinition, WatcherRuntimeState } from "./types.js";
+import { resolveOpenClawStateDir } from "./utils.js";
 
-export function defaultStatePath(): string {
-  return path.join(os.homedir(), ".openclaw", "sentinel-state.json");
+export function defaultStatePath(dataDir?: string): string {
+  const dir = dataDir ?? path.join(resolveOpenClawStateDir(), "data", "sentinel");
+  return path.join(dir, "state.json");
 }
 
 export async function loadState(filePath: string): Promise<SentinelStateFile> {

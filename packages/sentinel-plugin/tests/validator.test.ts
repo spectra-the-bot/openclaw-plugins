@@ -130,35 +130,48 @@ describe("validator", () => {
   });
 
   describe("operatorGoalFile", () => {
-    it("accepts valid absolute path", () => {
+    it("accepts valid relative path", () => {
       const watcher = validateWatcherDefinition({
         ...base,
         fire: {
           ...base.fire,
-          operatorGoalFile: "/home/user/.openclaw/policies/bidding.json",
+          operatorGoalFile: "policies/bidding.json",
         },
       });
-      expect(watcher.fire.operatorGoalFile).toBe("/home/user/.openclaw/policies/bidding.json");
+      expect(watcher.fire.operatorGoalFile).toBe("policies/bidding.json");
     });
 
-    it("accepts tilde-prefixed path", () => {
-      const watcher = validateWatcherDefinition({
-        ...base,
-        fire: {
-          ...base.fire,
-          operatorGoalFile: "~/.openclaw/policies/bidding.json",
-        },
-      });
-      expect(watcher.fire.operatorGoalFile).toBe("~/.openclaw/policies/bidding.json");
-    });
-
-    it("rejects relative paths", () => {
+    it("rejects absolute paths", () => {
       expect(() =>
         validateWatcherDefinition({
           ...base,
           fire: {
             ...base.fire,
-            operatorGoalFile: "policies/bidding.json",
+            operatorGoalFile: "/home/user/.openclaw/policies/bidding.json",
+          },
+        }),
+      ).toThrow(/Invalid watcher definition/);
+    });
+
+    it("rejects tilde-prefixed paths", () => {
+      expect(() =>
+        validateWatcherDefinition({
+          ...base,
+          fire: {
+            ...base.fire,
+            operatorGoalFile: "~/.openclaw/policies/bidding.json",
+          },
+        }),
+      ).toThrow(/Invalid watcher definition/);
+    });
+
+    it("rejects .. traversal", () => {
+      expect(() =>
+        validateWatcherDefinition({
+          ...base,
+          fire: {
+            ...base.fire,
+            operatorGoalFile: "../escape",
           },
         }),
       ).toThrow(/Invalid watcher definition/);
@@ -182,11 +195,11 @@ describe("validator", () => {
         fire: {
           ...base.fire,
           operatorGoal: "Follow the bidding policy from the referenced file",
-          operatorGoalFile: "~/.openclaw/policies/bidding.json",
+          operatorGoalFile: "bidding.json",
         },
       });
       expect(watcher.fire.operatorGoal).toContain("bidding policy");
-      expect(watcher.fire.operatorGoalFile).toBe("~/.openclaw/policies/bidding.json");
+      expect(watcher.fire.operatorGoalFile).toBe("bidding.json");
     });
   });
 
