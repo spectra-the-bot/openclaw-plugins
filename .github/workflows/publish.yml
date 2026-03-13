@@ -28,20 +28,22 @@ jobs:
       - name: Typecheck all packages
         run: pnpm -r typecheck
 
-      - name: Publish @spectratools/native-scheduler-types
-        run: pnpm publish --no-git-checks --access public --if-not-exists
-        working-directory: packages/native-scheduler-types
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @spectratools/native-scheduler
-        run: pnpm publish --no-git-checks --access public --if-not-exists
-        working-directory: packages/native-scheduler-plugin
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @spectratools/sentinel-plugin
-        run: pnpm publish --no-git-checks --access public --if-not-exists
-        working-directory: packages/sentinel-plugin
+      - name: Publish packages (skip already-published versions)
+        run: |
+          publish_if_new() {
+            local dir=$1
+            local name version
+            name=$(node -p "require('./package.json').name")
+            version=$(node -p "require('./package.json').version")
+            if npm view "${name}@${version}" version &>/dev/null; then
+              echo "⏭  ${name}@${version} already published, skipping"
+            else
+              echo "📦 Publishing ${name}@${version}..."
+              pnpm publish --no-git-checks --access public
+            fi
+          }
+          cd packages/native-scheduler-types  && publish_if_new && cd ../..
+          cd packages/native-scheduler-plugin && publish_if_new && cd ../..
+          cd packages/sentinel-plugin          && publish_if_new && cd ../..
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
