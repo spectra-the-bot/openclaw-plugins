@@ -3,7 +3,7 @@ import { defineConfig } from "vitepress";
 export default defineConfig({
   title: "openclaw-plugins",
   description: "native-scheduler and sentinel plugins for OpenClaw",
-  base: "/openclaw-plugins/",
+  base: "/",
   themeConfig: {
     nav: [
       { text: "Guide", link: "/guide/getting-started" },
