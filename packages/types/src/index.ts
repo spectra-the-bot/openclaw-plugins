@@ -27,10 +27,21 @@ export type NativeSchedulerPromptResult = {
   text: string;
   session?: string;
 };
+/**
+ * Delivers a message directly to a channel without invoking an LLM agent turn (zero tokens).
+ *
+ * `channel` must be one of the built-in OpenClaw channel providers:
+ * `discord` | `telegram` | `slack` | `signal` | `imessage` | `whatsapp` | `line`
+ *
+ * Plugin-added channels (e.g. xmtp, matrix) are NOT supported via this result type —
+ * use `{ result: "prompt" }` instead and let the agent dispatch to the channel.
+ * Once OpenClaw exposes `dispatchChannelMessageAction` on the plugin runtime API,
+ * this restriction can be lifted.
+ */
 export type NativeSchedulerMessageResult = {
   result: "message";
   text: string;
-  channel: string;
+  channel: "discord" | "telegram" | "slack" | "signal" | "imessage" | "whatsapp" | "line";
   target?: string;
 };
 
@@ -64,6 +75,16 @@ export function isRunContext(value: unknown): value is NativeSchedulerRunContext
   );
 }
 
+export const VALID_MESSAGE_CHANNELS = new Set([
+  "discord",
+  "telegram",
+  "slack",
+  "signal",
+  "imessage",
+  "whatsapp",
+  "line",
+] as const);
+
 /**
  * Type guard: is the value a valid NativeSchedulerResult?
  */
@@ -83,7 +104,7 @@ export function isResult(value: unknown): value is NativeSchedulerResult {
     case "message":
       return (
         typeof obj.text === "string" &&
-        typeof obj.channel === "string" &&
+        VALID_MESSAGE_CHANNELS.has(obj.channel as NativeSchedulerMessageResult["channel"]) &&
         (obj.target === undefined || typeof obj.target === "string")
       );
     default:
