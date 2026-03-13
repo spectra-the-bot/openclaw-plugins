@@ -24,8 +24,9 @@ function parsePayload(result: unknown) {
 
 describe("native_scheduler tool", () => {
   it("reports platform error for mismatched backend", async () => {
+    const mismatchedBackend = process.platform === "darwin" ? "systemd" : "launchd";
     const api = {
-      pluginConfig: { defaultBackend: "systemd" },
+      pluginConfig: { defaultBackend: mismatchedBackend },
       logger: {},
     } as any;
     const tool = createNativeSchedulerTool(api);

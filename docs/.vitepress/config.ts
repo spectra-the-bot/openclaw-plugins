@@ -15,9 +15,7 @@ export default defineConfig({
       },
     ],
     sidebar: {
-      "/guide/": [
-        { text: "Getting Started", link: "/guide/getting-started" },
-      ],
+      "/guide/": [{ text: "Getting Started", link: "/guide/getting-started" }],
       "/native-scheduler/": [
         { text: "Overview", link: "/native-scheduler/" },
         {
