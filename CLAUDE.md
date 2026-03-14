@@ -52,6 +52,35 @@ pnpm format         # biome format
 pnpm changeset      # create a changeset
 ```
 
+## ⚠️ Before Opening Any PR
+
+**CI will reject your PR if you skip this.** This has caused repeated failures — do not skip these steps.
+
+```bash
+# Step 1: Auto-fix lint and formatting issues (import order, quotes, semicolons, etc.)
+pnpm biome check --write .
+
+# Step 2: Verify no remaining errors (this is exactly what CI runs)
+pnpm exec biome check --diagnostic-level=error .
+
+# Step 3: Type check
+pnpm typecheck
+
+# Step 4: Run tests
+pnpm test
+```
+
+**All four steps must pass before you push.** If step 2 reports errors after step 1, fix them manually and repeat.
+
+### What Biome catches that is easy to miss
+
+- **Import ordering** — Biome auto-sorts imports (`organizeImports`). If you don't run `--write`, CI fails.
+- **Formatting** — 2-space indent, 100-char line width, double quotes, trailing commas, semicolons. Any deviation fails CI.
+- **Assignment in expressions** — `if (x = foo())` is banned; use `const x = foo(); if (x)` instead.
+- **Recommended lint rules** — no explicit `any` (warn), no non-null assertions (warn), plus all Biome recommended rules.
+
+---
+
 ## Key Conventions
 
 ### Code Style
@@ -97,10 +126,7 @@ pnpm changeset      # create a changeset
 - vitest with workspace config
 - Mock OS/filesystem interactions for platform-specific tests
 - **Platform guard for chmod tests**: `fs.chmod` is a no-op on Windows. Any test that relies on EACCES from chmod must skip on Windows: `it.skipIf(process.platform === 'win32')(...)`
-- **Before opening any PR, run the full check suite in order:**
-  1. `pnpm lint` — Biome lint + format check (must pass with zero errors)
-  2. `pnpm typecheck` — TypeScript type check
-  3. `pnpm test` — all tests must pass on all platforms
+- **Before opening any PR, run the full pre-PR checklist above** — lint, typecheck, test. Always start with `pnpm biome check --write .` to auto-fix formatting.
 
 ### Publishing
 
@@ -114,3 +140,4 @@ pnpm changeset      # create a changeset
 - Don't skip changesets — CI enforces them and will fail without one
 - Don't use `fs.chmod` to simulate permission errors in tests without a Windows skip guard
 - Don't run `pnpm changeset version` or `pnpm changeset publish` locally
+- **Don't push without running `pnpm biome check --write .` first** — CI runs biome and will reject unformatted code. Import order, formatting, and lint rules are all enforced.
