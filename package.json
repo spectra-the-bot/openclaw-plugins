@@ -14,7 +14,7 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "changeset": "changeset",
-    "changeset:version": "changeset version && pnpm biome format --write packages/*/package.json",
+    "changeset:version": "changeset version && node scripts/sync-plugin-versions.mjs && pnpm biome format --write packages/*/package.json packages/*/openclaw.plugin.json",
     "prepare": "husky"
   },
   "devDependencies": {

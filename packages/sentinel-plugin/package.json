@@ -27,6 +27,7 @@
   ],
   "type": "module",
   "scripts": {
+    "prepack": "node ../../scripts/check-plugin-manifest.mjs --package .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.unit.config.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts"
@@ -53,5 +54,14 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "openclaw": {
+    "extensions": [
+      "./src/index.ts"
+    ],
+    "install": {
+      "npmSpec": "@spectratools/sentinel",
+      "defaultChoice": "npm"
+    }
   }
 }

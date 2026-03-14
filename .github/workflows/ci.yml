@@ -55,6 +55,11 @@ jobs:
             exit 1
           fi
 
+      - name: Manifest sync check
+        run: |
+          node scripts/check-plugin-manifest.mjs --package packages/native-scheduler-plugin
+          node scripts/check-plugin-manifest.mjs --package packages/sentinel-plugin
+
       - name: Lint & format check
         run: pnpm exec biome check --diagnostic-level=error .
 
