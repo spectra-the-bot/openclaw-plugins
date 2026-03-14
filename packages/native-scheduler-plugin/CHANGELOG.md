@@ -1,5 +1,15 @@
 # @spectratools/native-scheduler
 
+## 1.1.0
+
+### Minor Changes
+
+- [#32](https://github.com/spectra-the-bot/openclaw-plugins/pull/32) [`67828f1`](https://github.com/spectra-the-bot/openclaw-plugins/commit/67828f1ef02a513b0a89beb390b6d3a838a58b45) Thanks [@spectra-the-bot](https://github.com/spectra-the-bot)! - Add pre-rendered Mermaid diagrams to documentation. Diagrams are rendered to static SVGs at build time via `@mermaid-js/mermaid-cli`, avoiding the ~500KB client-side Mermaid.js bundle. Added flow diagrams to native-scheduler overview, script contract result delivery, platform auto-detection, sentinel overview, and callback flow pages.
+
+### Patch Changes
+
+- [#30](https://github.com/spectra-the-bot/openclaw-plugins/pull/30) [`d9c35f0`](https://github.com/spectra-the-bot/openclaw-plugins/commit/d9c35f09315a2e645bcbdf05c653a0405f41bc06) Thanks [@spectra-the-bot](https://github.com/spectra-the-bot)! - Document `OPENCLAW_RESULT_FILE` script result delivery contract in SKILL.md
+
 ## 1.0.0
 
 ### Major Changes
