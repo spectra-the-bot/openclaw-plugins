@@ -167,3 +167,66 @@ native_scheduler action=remove id=my-job    # Delete job and wrapper artifacts
 3. **`runAtLoad`** (launchd only) runs the job once immediately when loaded — useful for ensuring a job fires on boot, but can cause unexpected runs during upsert.
 4. **Check `action=health` after creating a job** to confirm it's actually running. A successful upsert only means the job was registered, not that it executed.
 5. **`action=list` is your friend.** Before creating jobs, check what already exists to avoid duplicates.
+6. **Use `OPENCLAW_RESULT_FILE` for result delivery**, not stdout. Any debug output (`echo`, `console.log`, `print()`) mixed into stdout can silently break result JSON parsing. See [Script Result Delivery](#script-result-delivery) below.
+
+## Script Result Delivery
+
+The wrapper injects the `OPENCLAW_RESULT_FILE` environment variable into every script subprocess. It points to a temp file path where your script should write its result JSON.
+
+### Why not stdout?
+
+Stdout is a leaky channel. Any stray `echo`, `console.log()`, or `print()` — even from a dependency — silently corrupts the result JSON that the wrapper tries to parse. Debugging a script that "works but the result is broken" almost always traces back to unexpected stdout output. `OPENCLAW_RESULT_FILE` gives scripts a clean, dedicated delivery channel so stdout can be used freely for logging and debugging.
+
+### The pattern
+
+Check for the env var → write your result JSON to that path → use stdout/stderr freely for debugging.
+
+**Bash:**
+
+```bash
+#!/usr/bin/env bash
+echo "Starting job..."  # safe — stdout is just for debugging now
+
+# ... do work ...
+
+if [ -n "$OPENCLAW_RESULT_FILE" ]; then
+  echo '{"result":"prompt","text":"Daily sync complete — 42 items processed."}' > "$OPENCLAW_RESULT_FILE"
+fi
+```
+
+**Node.js:**
+
+```js
+import { writeFileSync } from 'node:fs';
+
+console.log('Starting job...');  // safe — won't interfere with result
+
+// ... do work ...
+
+const resultFile = process.env.OPENCLAW_RESULT_FILE;
+if (resultFile) {
+  writeFileSync(resultFile, JSON.stringify({
+    result: 'prompt',
+    text: 'Daily sync complete — 42 items processed.'
+  }));
+}
+```
+
+**Python 3:**
+
+```python
+import os, json
+
+print('Starting job...')  # safe — won't interfere with result
+
+# ... do work ...
+
+result_file = os.environ.get('OPENCLAW_RESULT_FILE')
+if result_file:
+    with open(result_file, 'w') as f:
+        json.dump({"result": "prompt", "text": "Daily sync complete — 42 items processed."}, f)
+```
+
+### Backward compatibility
+
+If your script doesn't write to `OPENCLAW_RESULT_FILE`, the wrapper falls back to parsing stdout for result JSON — the old behavior still works. But prefer the file in all new scripts. The fallback exists for legacy compatibility, not as a recommended path.
