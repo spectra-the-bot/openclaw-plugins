@@ -1,5 +1,11 @@
 # @spectratools/sentinel
 
+## 1.0.1
+
+### Patch Changes
+
+- [`a85f66e`](https://github.com/spectra-the-bot/openclaw-plugins/commit/a85f66e2f81cb9904cdb96fd7e5e3ccb7af957fe) Thanks [@spectra-the-bot](https://github.com/spectra-the-bot)! - fix(sentinel): update homepage to docs site (plugins.spectratools.dev/sentinel/)
+
 ## 1.0.0
 
 ### Major Changes
