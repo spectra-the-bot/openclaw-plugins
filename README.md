@@ -1,66 +1,57 @@
 # openclaw-plugins
 
-A pnpm monorepo of OpenClaw plugins maintained by [@spectra-the-bot](https://github.com/spectra-the-bot).
+A pnpm monorepo of [OpenClaw](https://openclaw.dev) plugins maintained by [@spectra-the-bot](https://github.com/spectra-the-bot).
 
 ## Packages
 
 | Package | Version | Description |
 |---|---|---|
-| [`@spectratools/native-scheduler`](packages/native-scheduler-plugin/) | 0.1.0 | Cross-platform native OS scheduler plugin for OpenClaw |
-| [`@spectratools/native-scheduler-types`](packages/native-scheduler-types/) | 0.1.0 | Script I/O contract types for native-scheduler |
-| [`@spectratools/sentinel`](packages/sentinel-plugin/) | 0.9.1 | Secure declarative gateway-native watcher plugin for OpenClaw |
+| [`@spectratools/native-scheduler`](packages/native-scheduler-plugin/) | `0.1.1` | macOS launchd scheduler plugin for OpenClaw |
+| [`@spectratools/native-scheduler-types`](packages/native-scheduler-types/) | `0.1.0` | Script I/O contract types for native-scheduler |
+| [`@spectratools/sentinel`](packages/sentinel-plugin/) | `0.9.1` | Declarative HTTP/WS/SSE/EVM watcher plugin for OpenClaw |
 
-## native-scheduler-plugin
+## native-scheduler
 
-Offloads deterministic, zero-token background work from OpenClaw's built-in cron system by scheduling scripts via the platform-native scheduler.
+Cross-platform native OS scheduler plugin that offloads deterministic background work from OpenClaw's built-in cron by scheduling scripts via the platform-native scheduler. Scripts run independently of the gateway process — if the gateway restarts, scheduled jobs keep firing.
 
-**Platform support:**
-- ✅ macOS — `launchd`
-- 🚧 Linux — `systemd timers` / `cron` (planned)
-- 🚧 Windows — Task Scheduler (planned)
+Currently fully supported on macOS via launchd, with Linux (systemd/cron) and Windows (Task Scheduler) planned.
 
-**Script contract** — scripts receive a `NativeSchedulerRunContext` JSON on stdin and write a `NativeSchedulerResult` JSON to stdout:
+→ [Package README](packages/native-scheduler-plugin/README.md)
 
-```ts
-// Input (stdin)
-interface NativeSchedulerRunContext {
-  schemaVersion: 1;
-  runId: string;
-  jobId: string;
-  namespace: string;
-  triggeredAt: number; // UTC epoch ms
-  platform: string;
-  backend: string;
-  config: Record<string, unknown>;
-}
+## native-scheduler-types
 
-// Output (stdout)
-type NativeSchedulerResult =
-  | { result: "noop" }
-  | { result: "prompt"; text: string; session?: string }
-  | { result: "message"; text: string; channel: "discord" | "telegram" | "slack" | "signal" | "imessage" | "whatsapp" | "line"; target?: string };
-```
+TypeScript type definitions for the native-scheduler script I/O contract. Defines `NativeSchedulerRunContext` (stdin input) and `NativeSchedulerResult` (stdout output) so scripts can be authored with full type safety.
 
-`prompt` results are delivered to an agent session via `openclaw system event` (costs tokens). `message` results are sent directly to the specified channel with zero tokens.
-
-**Tool actions:** `status` · `list` · `get` · `upsert` · `remove` · `run` · `enable` · `disable` · `health` · `last-run` · `failures` · `logs`
+→ [Package README](packages/native-scheduler-types/)
 
 ## sentinel
 
-Declarative HTTP/WebSocket/SSE/EVM watcher plugin. Polls endpoints on a configurable interval, evaluates JSONPath conditions, and fires webhook callbacks to agent sessions when conditions are met.
+Declarative gateway-native watcher plugin for OpenClaw. Define watchers that poll HTTP endpoints, listen to WebSocket streams, consume SSE feeds, or read EVM contract state — and fire callbacks to isolated agent sessions when conditions are met.
 
-See the upstream repo for full documentation: [coffeexcoin/openclaw-sentinel](https://github.com/coffeexcoin/openclaw-sentinel)
+→ [Package README](packages/sentinel-plugin/README.md)
+
+## Agent Skills
+
+Both plugins ship `SKILL.md` files that surface usage guidance to AI agents via OpenClaw's skill system. When a plugin is enabled, its skill is automatically loaded into the agent's available skills, providing structured instructions for tool usage, configuration, and best practices.
 
 ## Development
 
 ```bash
-pnpm install
-pnpm check          # biome check + typecheck + test (all packages)
-pnpm lint           # biome lint
-pnpm typecheck      # tsc --noEmit across all packages
+pnpm install        # install dependencies
+pnpm build          # build all packages
 pnpm test           # vitest across all packages
+pnpm typecheck      # tsc --noEmit across all packages
+pnpm lint           # biome lint
 ```
 
 ## CI
 
-Tests run on ubuntu, macos, and windows via GitHub Actions.
+Tests run on Ubuntu, macOS, and Windows via GitHub Actions. Releases are changeset-driven and published to npm automatically.
+
+## Documentation
+
+Full documentation is available at [plugins.spectratools.dev](https://plugins.spectratools.dev).
+
+## License
+
+MIT
