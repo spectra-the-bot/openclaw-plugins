@@ -2,7 +2,7 @@
   "id": "sentinel",
   "name": "OpenClaw Sentinel",
   "description": "Secure declarative gateway-native watcher plugin for OpenClaw",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
