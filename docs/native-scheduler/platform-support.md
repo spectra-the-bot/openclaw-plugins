@@ -17,6 +17,19 @@ The primary backend. Jobs are registered as user-level LaunchAgents (`~/Library/
 - Jobs use the `com.<namespace>.<jobId>` naming convention for plist labels
 - The wrapper runner is materialized as a standalone script alongside the plist
 
+### PATH auto-resolution
+
+launchd runs with a minimal PATH (`/usr/bin:/bin:/usr/sbin:/sbin`) — Homebrew, nvm, pyenv, and other user-installed tools won't be found without explicit configuration.
+
+At upsert time, native-scheduler automatically resolves the user's login shell PATH by running `$SHELL -l -c 'printf "%s" "$PATH"'` and injects it into both the plist `EnvironmentVariables` and the wrapper runner environment. This means `git`, `node`, `python3`, and other Homebrew binaries work out of the box.
+
+**Override behaviour:** If `environment.PATH` is explicitly set in the job definition, the auto-resolved PATH is skipped entirely — your value is used as-is.
+
+**Fallback:** If the shell probe fails (timeout or error), the plugin falls back to a safe default that covers most macOS setups:
+```
+/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+```
+
 ## systemd (Linux)
 
 Jobs are registered as user-level systemd service + timer units.

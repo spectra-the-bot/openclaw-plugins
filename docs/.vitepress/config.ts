@@ -32,6 +32,7 @@ export default defineConfig({
       "/sentinel/": [
         { text: "Overview", link: "/sentinel/" },
         { text: "Quick Start", link: "/sentinel/quick-start" },
+        { text: "Callbacks & Hook Sessions", link: "/sentinel/callbacks" },
       ],
     },
     socialLinks: [
