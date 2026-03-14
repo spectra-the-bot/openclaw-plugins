@@ -36,9 +36,7 @@ export interface NativeSchedulerRunContext {
  *   empty, or contains invalid JSON, the runner falls back to parsing
  *   stdout (backward compatible).
  */
-export const NATIVE_SCHEDULER_ENV_VARS = [
-  "OPENCLAW_RESULT_FILE",
-] as const;
+export const NATIVE_SCHEDULER_ENV_VARS = ["OPENCLAW_RESULT_FILE"] as const;
 
 export type NativeSchedulerEnvVar = (typeof NATIVE_SCHEDULER_ENV_VARS)[number];
 
