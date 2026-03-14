@@ -8,6 +8,18 @@ OpenClaw's built-in cron system runs tasks through the agent loop, consuming LLM
 
 ## How it works
 
+```mermaid
+flowchart TD
+    A["Agent calls native_scheduler tool\n(upsert action + job definition)"] --> B["Plugin materializes\nwrapper runner script"]
+    B --> C["Wrapper + job registered with\nplatform's native scheduler"]
+    C --> D["OS triggers job on schedule"]
+    D --> E["Wrapper pipes NativeSchedulerRunContext\nto script's stdin"]
+    E --> F{"Script returns\nNativeSchedulerResult"}
+    F -- "noop" --> G["No action taken\n(zero tokens)"]
+    F -- "prompt" --> H["Triggers agent session\n(LLM tokens consumed)"]
+    F -- "message" --> I["Delivers directly to channel\n(zero tokens)"]
+```
+
 1. The agent calls the `native_scheduler` tool with an `upsert` action and a job definition.
 2. The plugin materializes a **wrapper runner** script that handles stdin/stdout contract enforcement, health tracking, and failure callbacks.
 3. The wrapper + job are registered with the platform's native scheduler.

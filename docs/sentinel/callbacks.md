@@ -23,6 +23,22 @@ assess severity, and notify the #defi channel with a concise summary."
 
 For dynamic instructions that change at runtime (e.g., referencing current policy files), use `fire.operatorGoalFile` — the file is read fresh at fire time and its contents are injected as `operatorGoalRuntimeContext`.
 
+## Callback flow
+
+```mermaid
+flowchart TD
+    A["Watcher conditions match"] --> B["Sentinel fires webhook\nto gateway"]
+    B --> C["Gateway spawns\nhook session"]
+    C --> D["Agent receives callback\nenvelope with matched data"]
+    D --> E{"Agent decides\naction"}
+    E -- "Can handle" --> F["sentinel_act notify\n(fulfills relay contract)"]
+    E -- "Needs human" --> G["sentinel_escalate\n(does NOT fulfill relay)"]
+    E -- "No response\n(timeout)" --> H["Timeout fallback fires\nconcise summary delivered"]
+    G --> H
+    F --> I["Notification delivered\nto targets"]
+    H --> I
+```
+
 ## sentinel_act and sentinel_escalate
 
 In callback sessions, use these tools (not `message`) for delivery:

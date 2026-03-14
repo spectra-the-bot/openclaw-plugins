@@ -23,6 +23,15 @@ interface NativeSchedulerRunContext {
 
 The runner injects an `OPENCLAW_RESULT_FILE` environment variable pointing to a run-specific temporary file. Scripts can write their result JSON to this file instead of stdout. This is the **recommended** approach because it allows scripts to freely use `console.log`, `echo`, `print()`, etc. for debug output without breaking result parsing.
 
+```mermaid
+flowchart TD
+    A["Script finishes execution"] --> B{"OPENCLAW_RESULT_FILE\nexists and contains\nvalid JSON?"}
+    B -- Yes --> C["Use result file\n(recommended)"]
+    B -- No --> D{"stdout contains\nvalid result JSON?"}
+    D -- Yes --> E["Parse stdout\n(backward compatible)"]
+    D -- No --> F["Use defaultFailureResult\nor noop"]
+```
+
 **Priority order:**
 1. If `OPENCLAW_RESULT_FILE` exists and contains valid result JSON → use it
 2. Otherwise, fall back to parsing stdout (backward compatible)
