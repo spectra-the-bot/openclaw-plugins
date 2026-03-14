@@ -14,17 +14,25 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "changeset": "changeset",
-    "changeset:version": "changeset version && pnpm biome format --write packages/*/package.json"
+    "changeset:version": "changeset version && pnpm biome format --write packages/*/package.json",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
     "@changesets/changelog-github": "^0.5.1",
     "@changesets/cli": "^2.27.12",
     "@mermaid-js/mermaid-cli": "^11.12.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "vitepress": "^1.6.4"
   },
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@10.30.3"
+  "packageManager": "pnpm@10.30.3",
+  "lint-staged": {
+    "**/*.{ts,tsx,js,jsx,mjs,cjs,json,css,md}": [
+      "pnpm exec biome check --write --no-errors-on-unmatched"
+    ]
+  }
 }
