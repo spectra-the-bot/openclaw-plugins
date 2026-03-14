@@ -97,7 +97,10 @@ pnpm changeset      # create a changeset
 - vitest with workspace config
 - Mock OS/filesystem interactions for platform-specific tests
 - **Platform guard for chmod tests**: `fs.chmod` is a no-op on Windows. Any test that relies on EACCES from chmod must skip on Windows: `it.skipIf(process.platform === 'win32')(...)`
-- Run `pnpm test` before opening any PR — all tests must pass on all platforms
+- **Before opening any PR, run the full check suite in order:**
+  1. `pnpm lint` — Biome lint + format check (must pass with zero errors)
+  2. `pnpm typecheck` — TypeScript type check
+  3. `pnpm test` — all tests must pass on all platforms
 
 ### Publishing
 
