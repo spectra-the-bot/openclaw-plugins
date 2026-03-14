@@ -1,9 +1,15 @@
 import { defineConfig } from "vitepress";
+import { mermaidPlugin } from "./mermaid-plugin";
 
 export default defineConfig({
   title: "openclaw-plugins",
   description: "native-scheduler and sentinel plugins for OpenClaw",
   base: "/",
+  markdown: {
+    config: (md) => {
+      md.use(mermaidPlugin);
+    },
+  },
   themeConfig: {
     nav: [
       { text: "Guide", link: "/guide/getting-started" },

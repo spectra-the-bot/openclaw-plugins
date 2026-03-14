@@ -10,6 +10,7 @@
     "test": "pnpm -r test",
     "check": "biome check . && pnpm typecheck && pnpm test",
     "docs:dev": "vitepress dev docs",
+    "predocs:build": "node scripts/render-mermaid.mjs --clean",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "changeset": "changeset",
@@ -19,6 +20,7 @@
     "@biomejs/biome": "^2.4.6",
     "@changesets/changelog-github": "^0.5.1",
     "@changesets/cli": "^2.27.12",
+    "@mermaid-js/mermaid-cli": "^11.12.0",
     "vitepress": "^1.6.4"
   },
   "engines": {

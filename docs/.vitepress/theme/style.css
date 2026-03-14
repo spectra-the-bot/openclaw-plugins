@@ -233,6 +233,23 @@
   letter-spacing: -0.01em;
 }
 
+/* Mermaid diagrams */
+.mermaid-diagram {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 8px;
+  text-align: center;
+}
+.mermaid-diagram img {
+  max-width: 100%;
+  height: auto;
+}
+.dark .mermaid-diagram {
+  background: var(--vp-c-bg-elv);
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   :root,

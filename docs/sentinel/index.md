@@ -6,6 +6,18 @@ For full upstream documentation, see [coffeexcoin/openclaw-sentinel](https://git
 
 ## How it works
 
+```mermaid
+flowchart TD
+    A["Define watcher\n(endpoint, strategy, conditions)"] --> B["Sentinel polls / listens\nto endpoint"]
+    B --> C{"Evaluate JSONPath\nconditions against\nresponse"}
+    C -- "No match" --> B
+    C -- "Match" --> D["Fire webhook to\nOpenClaw gateway"]
+    D --> E["Gateway creates isolated\ncallback session"]
+    E --> F{"Agent processes\ncallback event"}
+    F -- "Action needed" --> G["sentinel_act\n(run command / notify)"]
+    F -- "Needs human" --> H["sentinel_escalate\n(flag for review)"]
+```
+
 1. Define a **watcher** with an endpoint, polling strategy, and conditions.
 2. Sentinel evaluates JSONPath conditions against each response.
 3. When conditions match, sentinel fires a webhook to the OpenClaw gateway, which routes it to a callback session.

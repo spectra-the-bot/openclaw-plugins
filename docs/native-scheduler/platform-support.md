@@ -74,6 +74,16 @@ Jobs are registered via `schtasks.exe`.
 
 ## Backend auto-detection
 
+```mermaid
+flowchart TD
+    A["auto backend\ndetection"] --> B{"Platform?"}
+    B -- "macOS (darwin)" --> C["launchd"]
+    B -- "Linux" --> D{"systemd\navailable?"}
+    B -- "Windows" --> E["Windows Task\nScheduler"]
+    D -- Yes --> F["systemd"]
+    D -- No --> G["cron\n(fallback)"]
+```
+
 | Platform | Backend |
 |---|---|
 | macOS (`darwin`) | `launchd` |
