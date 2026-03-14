@@ -25,4 +25,9 @@ describe("manifest ↔ configSchema alignment", () => {
     expect(typeof manifest.version).toBe("string");
     expect(manifest.version.length).toBeGreaterThan(0);
   });
+
+  it("openclaw.plugin.json version matches package.json version", () => {
+    const pkg = JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf-8"));
+    expect(manifest.version).toBe(pkg.version);
+  });
 });
