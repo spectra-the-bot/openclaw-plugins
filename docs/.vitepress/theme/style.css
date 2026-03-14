@@ -3,77 +3,124 @@
    plugins.spectratools.dev
    
    Designer: Arden — 2026-03-13
+   
+   Paste into: .vitepress/theme/style.css
    ============================================================ */
 
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;1,14..32,400&family=JetBrains+Mono:wght@400;500&display=swap");
+/* ── Font Imports ────────────────────────────────────────── */
+/* IBM Plex Sans (headings) + JetBrains Mono (code) from Google Fonts */
+/* Geist Sans (body) from Vercel CDN — see note below for npm alternative */
+
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css");
+
+/* npm alternative for Geist (if you prefer self-hosting):
+   npm install geist
+   then in your theme's index.ts:
+   import 'geist/dist/fonts/geist-sans/style.css'
+   and remove the CDN @import above.
+*/
+
+/* ── LIGHT MODE (default) ───────────────────────────────── */
 
 :root {
+  /* Brand — blue lead, cool and authoritative */
   --vp-c-brand-1: #3a65d4;
   --vp-c-brand-2: #5478d9;
   --vp-c-brand-3: #8aa3e8;
   --vp-c-brand-soft: rgba(58, 101, 212, 0.08);
+
+  /* Backgrounds — cool-tinted whites, never warm */
   --vp-c-bg: #f8f9fc;
   --vp-c-bg-alt: #f0f2f7;
   --vp-c-bg-elv: #ffffff;
   --vp-c-bg-soft: #e8ebf2;
+
+  /* Text — navy ink, not black */
   --vp-c-text-1: #1a1f2e;
   --vp-c-text-2: #4a5068;
   --vp-c-text-3: #656b82;
+
+  /* Borders — subtle, cool gray */
   --vp-c-border: #d4d8e4;
   --vp-c-divider: #e0e3ed;
   --vp-c-gutter: #eceef5;
+
+  /* State: Tip (green) */
   --vp-c-tip-1: #1a7a5c;
   --vp-c-tip-soft: rgba(26, 122, 92, 0.08);
+
+  /* State: Warning (orange) */
   --vp-c-warning-1: #a85d00;
   --vp-c-warning-soft: rgba(168, 93, 0, 0.08);
+
+  /* State: Danger (red) */
   --vp-c-danger-1: #c42b2b;
   --vp-c-danger-soft: rgba(196, 43, 43, 0.08);
+
+  /* State: Important (purple) */
   --vp-c-important-1: #6544e0;
   --vp-c-important-soft: rgba(101, 68, 224, 0.08);
+
   --vp-font-family-base:
-    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
-    sans-serif;
+    "Geist Sans", "GeistSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
   --vp-font-family-mono:
     "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, monospace;
-  --spectra-font-heading: "Space Grotesk", var(--vp-font-family-base);
+
+  --spectra-font-heading: "IBM Plex Sans", var(--vp-font-family-base);
+
   --spectra-gradient: linear-gradient(135deg, #4a7bf7 0%, #7b61ff 50%, #38bdf8 100%);
+
   --spectra-c-teal: #0e8a9e;
   --spectra-c-pink: #c4389a;
+
   transition:
     background-color 0.3s ease,
     color 0.3s ease,
     border-color 0.3s ease;
 }
 
+/* ── DARK MODE ──────────────────────────────────────────── */
+
 .dark {
   --vp-c-brand-1: #5b8df9;
   --vp-c-brand-2: #7b61ff;
   --vp-c-brand-3: #4d6a94;
   --vp-c-brand-soft: rgba(91, 141, 249, 0.1);
+
   --vp-c-bg: #0b0e17;
   --vp-c-bg-alt: #0f1320;
   --vp-c-bg-elv: #141b2d;
   --vp-c-bg-soft: #1a2237;
+
   --vp-c-text-1: #e8ecf4;
   --vp-c-text-2: #8a9ab4;
   --vp-c-text-3: #6e8099;
+
   --vp-c-border: #1e2d4a;
   --vp-c-divider: #182338;
   --vp-c-gutter: #0f1320;
+
   --vp-c-tip-1: #34d399;
   --vp-c-tip-soft: rgba(52, 211, 153, 0.1);
+
   --vp-c-warning-1: #fb923c;
   --vp-c-warning-soft: rgba(251, 146, 60, 0.1);
+
   --vp-c-danger-1: #f87171;
   --vp-c-danger-soft: rgba(248, 113, 113, 0.1);
+
   --vp-c-important-1: #a78bfa;
   --vp-c-important-soft: rgba(167, 139, 250, 0.1);
+
   --spectra-c-teal: #38bdf8;
   --spectra-c-pink: #f472b6;
 }
 
-/* Space Grotesk headings */
+/* ── IBM Plex Sans Headings ─────────────────────────────── */
+
 .vp-doc h1,
 .vp-doc h2,
 .vp-doc h3,
@@ -84,19 +131,34 @@
   letter-spacing: -0.02em;
 }
 
-/* Prismatic hero title */
-.VPHero .name,
-.VPHero .name .clip {
-  background: var(--spectra-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+.vp-doc h1 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
 
-/* Hero background glow */
+/* ── Hero Title ─────────────────────────────────────────── */
+/* No gradient fill. IBM Plex Bold, tight tracking, flat color. */
+
+.VPHero .name {
+  font-family: var(--spectra-font-heading);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--vp-c-text-1);
+}
+
+.VPHero .tagline {
+  font-family: var(--spectra-font-heading);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--vp-c-text-2);
+}
+
+/* ── Hero Background Glow ───────────────────────────────── */
+
 .VPHero {
   position: relative;
 }
+
 .dark .VPHero::before {
   content: "";
   position: absolute;
@@ -114,6 +176,7 @@
   pointer-events: none;
   z-index: 0;
 }
+
 :root .VPHero::before {
   content: "";
   position: absolute;
@@ -132,13 +195,17 @@
   z-index: 0;
 }
 
-/* Card top-border accent */
+/* ── Card Top-Border Accent ─────────────────────────────── */
+
 .VPFeature {
   border-top: 2px solid transparent;
   border-image: var(--spectra-gradient) 1;
   border-image-slice: 1;
 }
+
 .dark .VPFeature {
+  border-color: transparent;
+  border-top: 2px solid transparent;
   border-image: linear-gradient(
       90deg,
       rgba(91, 141, 249, 0.5) 0%,
@@ -149,22 +216,26 @@
   border-image-slice: 1;
 }
 
-/* Code block elevation */
+/* ── Code Block Elevation ───────────────────────────────── */
+
 .dark .vp-doc div[class*="language-"] {
   background-color: var(--vp-c-bg-elv);
   border: 1px solid var(--vp-c-border);
   border-left: 3px solid var(--vp-c-brand-1);
 }
+
 :root .vp-doc div[class*="language-"] {
   background-color: var(--vp-c-bg-soft);
   border: 1px solid var(--vp-c-border);
   border-left: 3px solid var(--vp-c-brand-1);
 }
+
 .vp-doc div[class*="language-"] code {
   font-family: var(--vp-font-family-mono);
 }
 
-/* Sidebar active state */
+/* ── Sidebar Active State ───────────────────────────────── */
+
 .VPSidebar .VPSidebarItem.is-active > .item > .link {
   border-left: 3px solid var(--vp-c-brand-1);
   background-color: var(--vp-c-brand-soft);
@@ -172,41 +243,50 @@
   border-radius: 0 6px 6px 0;
 }
 
-/* Dark scrollbar */
+/* ── Custom Scrollbar (dark mode) ───────────────────────── */
+
 .dark ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+
 .dark ::-webkit-scrollbar-track {
   background: var(--vp-c-bg);
 }
+
 .dark ::-webkit-scrollbar-thumb {
   background: var(--vp-c-border);
   border-radius: 4px;
 }
+
 .dark ::-webkit-scrollbar-thumb:hover {
   background: var(--vp-c-brand-3);
 }
 
-/* Custom callout blocks */
+/* ── Custom Container Callouts ──────────────────────────── */
+
 .dark .vp-doc .custom-block.tip {
   border-color: rgba(52, 211, 153, 0.3);
   background-color: var(--vp-c-tip-soft);
 }
+
 .dark .vp-doc .custom-block.warning {
   border-color: rgba(251, 146, 60, 0.3);
   background-color: var(--vp-c-warning-soft);
 }
+
 .dark .vp-doc .custom-block.danger {
   border-color: rgba(248, 113, 113, 0.3);
   background-color: var(--vp-c-danger-soft);
 }
+
 .dark .vp-doc .custom-block.info {
   border-color: rgba(91, 141, 249, 0.3);
   background-color: var(--vp-c-brand-soft);
 }
 
-/* Transitions */
+/* ── Smooth Transitions ─────────────────────────────────── */
+
 .VPNav,
 .VPSidebar,
 .VPContent,
@@ -217,7 +297,8 @@
     border-color 0.3s ease;
 }
 
-/* Link hover */
+/* ── Link Hover ─────────────────────────────────────────── */
+
 .vp-doc a:hover {
   color: var(--vp-c-brand-2);
   text-decoration-color: var(--vp-c-brand-2);
@@ -226,14 +307,16 @@
     text-decoration-color 0.2s ease;
 }
 
-/* Nav title */
+/* ── Nav Title ──────────────────────────────────────────── */
+
 .VPNavBarTitle .title {
   font-family: var(--spectra-font-heading);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
-/* Mermaid diagrams */
+/* ── Mermaid Diagrams ───────────────────────────────────── */
+
 .mermaid-diagram {
   margin: 1.5rem 0;
   padding: 1.25rem;
@@ -250,7 +333,8 @@
   background: var(--vp-c-bg-elv);
 }
 
-/* Reduced motion */
+/* ── Reduced Motion ─────────────────────────────────────── */
+
 @media (prefers-reduced-motion: reduce) {
   :root,
   .VPNav,
@@ -260,6 +344,7 @@
   .vp-doc a {
     transition: none !important;
   }
+
   .VPHero::before {
     display: none;
   }
