@@ -1,6 +1,6 @@
 {
   "name": "@spectratools/native-scheduler-types",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Input/output contract types for native-scheduler-plugin scripts",
   "homepage": "https://plugins.spectratools.dev/native-scheduler/script-contract",
   "bugs": {
