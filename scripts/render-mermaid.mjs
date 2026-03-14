@@ -18,13 +18,13 @@
  *   node scripts/render-mermaid.mjs --clean  # remove stale SVGs
  */
 
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   statSync,
   unlinkSync,
   writeFileSync,
@@ -69,15 +69,15 @@ function renderSvg(mermaidSource, outputPath) {
       env: { ...process.env },
     });
   } finally {
-    try { unlinkSync(tmpInput); } catch {}
+    try {
+      unlinkSync(tmpInput);
+    } catch {}
   }
 
   // Post-process: make SVG responsive (remove fixed dimensions)
   if (existsSync(outputPath)) {
     let svg = readFileSync(outputPath, "utf-8");
-    svg = svg
-      .replace(/\s+width="[^"]*"/g, "")
-      .replace(/\s+height="[^"]*"/g, "");
+    svg = svg.replace(/\s+width="[^"]*"/g, "").replace(/\s+height="[^"]*"/g, "");
     if (!svg.includes('style="')) {
       svg = svg.replace("<svg", '<svg style="max-width:100%;height:auto"');
     }
@@ -95,10 +95,10 @@ function render() {
 
   for (const mdFile of mdFiles) {
     const content = readFileSync(mdFile, "utf-8");
-    let match;
     MERMAID_FENCE_RE.lastIndex = 0;
+    let match = MERMAID_FENCE_RE.exec(content);
 
-    while ((match = MERMAID_FENCE_RE.exec(content)) !== null) {
+    while (match !== null) {
       totalDiagrams++;
       const trimmed = match[1].trim();
       const hash = contentHash(trimmed);
@@ -112,6 +112,7 @@ function render() {
         renderSvg(trimmed, svgPath);
         rendered++;
       }
+      match = MERMAID_FENCE_RE.exec(content);
     }
   }
 
