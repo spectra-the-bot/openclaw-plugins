@@ -1,5 +1,17 @@
 # @spectratools/native-scheduler
 
+## 1.1.1
+
+### Patch Changes
+
+- [#37](https://github.com/spectra-the-bot/openclaw-plugins/pull/37) [`59e0fb2`](https://github.com/spectra-the-bot/openclaw-plugins/commit/59e0fb27e25f23e3593ddcd5e814e58e74897cdb) Thanks [@spectra-the-bot](https://github.com/spectra-the-bot)! - fix: sync openclaw.plugin.json version with package.json
+
+  Both native-scheduler and sentinel had stale versions in their
+  openclaw.plugin.json manifests. Updated to match package.json and
+  added tests to prevent future drift.
+
+- [#42](https://github.com/spectra-the-bot/openclaw-plugins/pull/42) [`14d3e78`](https://github.com/spectra-the-bot/openclaw-plugins/commit/14d3e78bfc330ca232725a9c2197e6eecfd08497) Thanks [@spectra-the-bot](https://github.com/spectra-the-bot)! - Add pre-publish manifest sync checks to prevent version drift between package.json and openclaw.plugin.json.
+
 ## 1.1.0
 
 ### Minor Changes
