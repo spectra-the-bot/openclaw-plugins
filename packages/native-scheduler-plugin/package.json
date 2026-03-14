@@ -35,6 +35,7 @@
   ],
   "type": "module",
   "scripts": {
+    "prepack": "node ../../scripts/check-plugin-manifest.mjs --package .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
