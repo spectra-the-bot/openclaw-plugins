@@ -1,0 +1,172 @@
+/* ============================================================
+   Spectra VitePress Theme
+   plugins.spectratools.dev
+   
+   Designer: Arden — 2026-03-13
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;1,14..32,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --vp-c-brand-1: #3A65D4;
+  --vp-c-brand-2: #5478D9;
+  --vp-c-brand-3: #8AA3E8;
+  --vp-c-brand-soft: rgba(58, 101, 212, 0.08);
+  --vp-c-bg: #F8F9FC;
+  --vp-c-bg-alt: #F0F2F7;
+  --vp-c-bg-elv: #FFFFFF;
+  --vp-c-bg-soft: #E8EBF2;
+  --vp-c-text-1: #1A1F2E;
+  --vp-c-text-2: #4A5068;
+  --vp-c-text-3: #656B82;
+  --vp-c-border: #D4D8E4;
+  --vp-c-divider: #E0E3ED;
+  --vp-c-gutter: #ECEEF5;
+  --vp-c-tip-1: #1A7A5C;
+  --vp-c-tip-soft: rgba(26, 122, 92, 0.08);
+  --vp-c-warning-1: #A85D00;
+  --vp-c-warning-soft: rgba(168, 93, 0, 0.08);
+  --vp-c-danger-1: #C42B2B;
+  --vp-c-danger-soft: rgba(196, 43, 43, 0.08);
+  --vp-c-important-1: #6544E0;
+  --vp-c-important-soft: rgba(101, 68, 224, 0.08);
+  --vp-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --spectra-font-heading: 'Space Grotesk', var(--vp-font-family-base);
+  --spectra-gradient: linear-gradient(135deg, #4A7BF7 0%, #7B61FF 50%, #38BDF8 100%);
+  --spectra-c-teal: #0E8A9E;
+  --spectra-c-pink: #C4389A;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.dark {
+  --vp-c-brand-1: #5B8DF9;
+  --vp-c-brand-2: #7B61FF;
+  --vp-c-brand-3: #4D6A94;
+  --vp-c-brand-soft: rgba(91, 141, 249, 0.10);
+  --vp-c-bg: #0B0E17;
+  --vp-c-bg-alt: #0F1320;
+  --vp-c-bg-elv: #141B2D;
+  --vp-c-bg-soft: #1A2237;
+  --vp-c-text-1: #E8ECF4;
+  --vp-c-text-2: #8A9AB4;
+  --vp-c-text-3: #6E8099;
+  --vp-c-border: #1E2D4A;
+  --vp-c-divider: #182338;
+  --vp-c-gutter: #0F1320;
+  --vp-c-tip-1: #34D399;
+  --vp-c-tip-soft: rgba(52, 211, 153, 0.10);
+  --vp-c-warning-1: #FB923C;
+  --vp-c-warning-soft: rgba(251, 146, 60, 0.10);
+  --vp-c-danger-1: #F87171;
+  --vp-c-danger-soft: rgba(248, 113, 113, 0.10);
+  --vp-c-important-1: #A78BFA;
+  --vp-c-important-soft: rgba(167, 139, 250, 0.10);
+  --spectra-c-teal: #38BDF8;
+  --spectra-c-pink: #F472B6;
+}
+
+/* Space Grotesk headings */
+.vp-doc h1, .vp-doc h2, .vp-doc h3,
+.VPHero .name, .VPHero .tagline, .VPFeature .title {
+  font-family: var(--spectra-font-heading);
+  letter-spacing: -0.02em;
+}
+
+/* Prismatic hero title */
+.VPHero .name, .VPHero .name .clip {
+  background: var(--spectra-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Hero background glow */
+.VPHero { position: relative; }
+.dark .VPHero::before {
+  content: '';
+  position: absolute;
+  top: -20%; left: 50%;
+  transform: translateX(-50%);
+  width: 800px; height: 600px;
+  background: radial-gradient(ellipse at center, rgba(91, 141, 249, 0.06) 0%, rgba(123, 97, 255, 0.03) 40%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+:root .VPHero::before {
+  content: '';
+  position: absolute;
+  top: -20%; left: 50%;
+  transform: translateX(-50%);
+  width: 800px; height: 600px;
+  background: radial-gradient(ellipse at center, rgba(58, 101, 212, 0.05) 0%, rgba(101, 68, 224, 0.02) 40%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+
+/* Card top-border accent */
+.VPFeature {
+  border-top: 2px solid transparent;
+  border-image: var(--spectra-gradient) 1;
+  border-image-slice: 1;
+}
+.dark .VPFeature {
+  border-image: linear-gradient(90deg, rgba(91, 141, 249, 0.5) 0%, rgba(123, 97, 255, 0.5) 50%, rgba(56, 189, 248, 0.5) 100%) 1;
+  border-image-slice: 1;
+}
+
+/* Code block elevation */
+.dark .vp-doc div[class*='language-'] {
+  background-color: var(--vp-c-bg-elv);
+  border: 1px solid var(--vp-c-border);
+  border-left: 3px solid var(--vp-c-brand-1);
+}
+:root .vp-doc div[class*='language-'] {
+  background-color: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-border);
+  border-left: 3px solid var(--vp-c-brand-1);
+}
+.vp-doc div[class*='language-'] code { font-family: var(--vp-font-family-mono); }
+
+/* Sidebar active state */
+.VPSidebar .VPSidebarItem.is-active > .item > .link {
+  border-left: 3px solid var(--vp-c-brand-1);
+  background-color: var(--vp-c-brand-soft);
+  padding-left: 12px;
+  border-radius: 0 6px 6px 0;
+}
+
+/* Dark scrollbar */
+.dark ::-webkit-scrollbar { width: 8px; height: 8px; }
+.dark ::-webkit-scrollbar-track { background: var(--vp-c-bg); }
+.dark ::-webkit-scrollbar-thumb { background: var(--vp-c-border); border-radius: 4px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: var(--vp-c-brand-3); }
+
+/* Custom callout blocks */
+.dark .vp-doc .custom-block.tip { border-color: rgba(52, 211, 153, 0.3); background-color: var(--vp-c-tip-soft); }
+.dark .vp-doc .custom-block.warning { border-color: rgba(251, 146, 60, 0.3); background-color: var(--vp-c-warning-soft); }
+.dark .vp-doc .custom-block.danger { border-color: rgba(248, 113, 113, 0.3); background-color: var(--vp-c-danger-soft); }
+.dark .vp-doc .custom-block.info { border-color: rgba(91, 141, 249, 0.3); background-color: var(--vp-c-brand-soft); }
+
+/* Transitions */
+.VPNav, .VPSidebar, .VPContent, .VPFooter {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Link hover */
+.vp-doc a:hover {
+  color: var(--vp-c-brand-2);
+  text-decoration-color: var(--vp-c-brand-2);
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+
+/* Nav title */
+.VPNavBarTitle .title {
+  font-family: var(--spectra-font-heading);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  :root, .VPNav, .VPSidebar, .VPContent, .VPFooter, .vp-doc a { transition: none !important; }
+  .VPHero::before { display: none; }
+}
