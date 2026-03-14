@@ -27,9 +27,7 @@ describe("manifest ↔ configSchema alignment", () => {
   });
 
   it("openclaw.plugin.json version matches package.json version", () => {
-    const pkg = JSON.parse(
-      readFileSync(join(import.meta.dirname, "..", "package.json"), "utf-8"),
-    );
+    const pkg = JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf-8"));
     expect(manifest.version).toBe(pkg.version);
   });
 });

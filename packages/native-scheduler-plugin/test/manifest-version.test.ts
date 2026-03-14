@@ -6,9 +6,7 @@ const manifest = JSON.parse(
   readFileSync(join(import.meta.dirname, "..", "openclaw.plugin.json"), "utf-8"),
 );
 
-const pkg = JSON.parse(
-  readFileSync(join(import.meta.dirname, "..", "package.json"), "utf-8"),
-);
+const pkg = JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf-8"));
 
 describe("openclaw.plugin.json ↔ package.json alignment", () => {
   it("versions match", () => {
