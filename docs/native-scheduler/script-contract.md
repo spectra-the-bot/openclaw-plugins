@@ -19,9 +19,72 @@ interface NativeSchedulerRunContext {
 }
 ```
 
+## Result delivery: `OPENCLAW_RESULT_FILE`
+
+The runner injects an `OPENCLAW_RESULT_FILE` environment variable pointing to a run-specific temporary file. Scripts can write their result JSON to this file instead of stdout. This is the **recommended** approach because it allows scripts to freely use `console.log`, `echo`, `print()`, etc. for debug output without breaking result parsing.
+
+**Priority order:**
+1. If `OPENCLAW_RESULT_FILE` exists and contains valid result JSON → use it
+2. Otherwise, fall back to parsing stdout (backward compatible)
+
+The runner cleans up the result file automatically after reading.
+
+### Bash example
+
+```bash
+#!/usr/bin/env bash
+cat > /dev/null  # drain stdin
+
+echo "DEBUG: checking disk usage..."
+USAGE=$(df -h / | tail -1 | awk '{print $5}')
+echo "DEBUG: usage is $USAGE"
+
+# Write result to the file — stdout noise doesn't matter
+echo '{"result":"prompt","text":"Disk usage: '"$USAGE"'"}' > "$OPENCLAW_RESULT_FILE"
+```
+
+### Python example
+
+```python
+#!/usr/bin/env python3
+import json, os, sys
+
+sys.stdin.read()  # drain stdin
+
+print("DEBUG: running health check...")  # safe — won't break results
+
+result = {"result": "noop"}
+result_file = os.environ.get("OPENCLAW_RESULT_FILE")
+if result_file:
+    with open(result_file, "w") as f:
+        json.dump(result, f)
+```
+
+### Node.js example
+
+```js
+#!/usr/bin/env node
+import fs from "node:fs";
+
+process.stdin.resume();
+process.stdin.on("end", () => {
+  console.log("DEBUG: starting up...");  // safe — won't break results
+
+  const result = { result: "noop" };
+  const resultFile = process.env.OPENCLAW_RESULT_FILE;
+  if (resultFile) {
+    fs.writeFileSync(resultFile, JSON.stringify(result));
+  }
+});
+```
+
+::: tip Backward compatibility
+Scripts that write results to stdout still work. If `OPENCLAW_RESULT_FILE` is not written to, the runner falls back to parsing stdout as before.
+:::
+
 ## Output: `NativeSchedulerResult`
 
-Your script writes one of three result types as JSON to **stdout**.
+Your script writes one of three result types as JSON to `OPENCLAW_RESULT_FILE` (preferred) or **stdout** (legacy).
 
 ### `noop` — Nothing to do
 
@@ -91,6 +154,7 @@ The types package exports runtime validation functions:
 
 ```ts
 #!/usr/bin/env -S npx tsx
+import fs from "node:fs";
 import type {
   NativeSchedulerResult,
   NativeSchedulerRunContext,
@@ -103,10 +167,20 @@ async function main() {
   }
   const ctx: NativeSchedulerRunContext = JSON.parse(stdinData);
 
+  console.log("Processing job:", ctx.jobId);  // safe with OPENCLAW_RESULT_FILE
+
   // Your logic here...
 
   const result: NativeSchedulerResult = { result: "noop" };
-  process.stdout.write(JSON.stringify(result));
+
+  // Write result to OPENCLAW_RESULT_FILE (preferred)
+  const resultFile = process.env.OPENCLAW_RESULT_FILE;
+  if (resultFile) {
+    fs.writeFileSync(resultFile, JSON.stringify(result));
+  } else {
+    // Fallback for older runners
+    process.stdout.write(JSON.stringify(result));
+  }
 }
 
 main().catch((err) => {

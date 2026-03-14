@@ -375,16 +375,38 @@ async function main() {
   const runContext = buildRunContext(config, runId);
   const stdinData = JSON.stringify(runContext);
 
+  // Create a result file path for the script to write results to.
+  // This avoids the fragile stdout-as-JSON pattern where debug output breaks parsing.
+  const resultFilePath = path.join(config.paths.runsDir, "result-" + runId + ".json");
+  await fs.mkdir(config.paths.runsDir, { recursive: true });
+
   const commandResult = await runCommand(config.command, {
     cwd: config.workingDirectory,
-    env: { ...process.env, ...(config.environment ?? {}) },
+    env: { ...process.env, ...(config.environment ?? {}), OPENCLAW_RESULT_FILE: resultFilePath },
     stdinData,
   });
 
   const finishedAtMs = Date.now();
   const finishedAt = nowIso();
 
-  let scriptResult = parseScriptResult(commandResult.stdout);
+  // Try reading result from OPENCLAW_RESULT_FILE first, fall back to stdout parsing.
+  let scriptResult;
+  let resultFileContent;
+  try {
+    resultFileContent = await fs.readFile(resultFilePath, "utf8");
+  } catch {
+    // File doesn't exist — expected for scripts that don't use it.
+  }
+  // Clean up the temp result file regardless of outcome.
+  try { await fs.unlink(resultFilePath); } catch { /* ignore */ }
+
+  if (resultFileContent && resultFileContent.trim()) {
+    scriptResult = parseScriptResult(resultFileContent);
+  }
+  // Fall back to stdout parsing for backward compatibility.
+  if (!scriptResult) {
+    scriptResult = parseScriptResult(commandResult.stdout);
+  }
 
   // Apply defaultFailureResult when script crashes, times out, or produces no valid output
   const scriptFailed = commandResult.code !== 0 || commandResult.spawnError;
