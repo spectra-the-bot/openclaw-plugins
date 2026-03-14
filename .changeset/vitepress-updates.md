@@ -1,4 +1,0 @@
----
----
-
-docs: vitepress updates
