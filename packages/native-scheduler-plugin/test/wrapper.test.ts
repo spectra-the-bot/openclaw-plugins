@@ -507,6 +507,201 @@ describe("wrapper runner", () => {
     expect(attempts).toBe("xxx");
   }, 15_000);
 
+  it("reads result from OPENCLAW_RESULT_FILE even when stdout has noise", async () => {
+    const baseDir = await makeTempDir();
+
+    // Script writes debug noise to stdout and result to OPENCLAW_RESULT_FILE
+    const script = [
+      "const fs = require('node:fs');",
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      "  console.log('DEBUG: starting up...');",
+      "  console.log('DEBUG: doing some work');",
+      "  console.log('WARNING: this is a warning');",
+      "  const resultFile = process.env.OPENCLAW_RESULT_FILE;",
+      '  fs.writeFileSync(resultFile, JSON.stringify({result:"prompt",text:"real result"}));',
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-result-file",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(0);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(true);
+    expect(latest?.scriptResult).toEqual({ result: "prompt", text: "real result" });
+  });
+
+  it("falls back to stdout when OPENCLAW_RESULT_FILE is not written", async () => {
+    const baseDir = await makeTempDir();
+
+    // Script ignores OPENCLAW_RESULT_FILE and writes result to stdout (backward compat)
+    const script = [
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      '  process.stdout.write(JSON.stringify({result:"noop"}));',
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-stdout-fallback",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(0);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(true);
+    expect(latest?.scriptResult).toEqual({ result: "noop" });
+  });
+
+  it("falls back to stdout when OPENCLAW_RESULT_FILE contains invalid JSON", async () => {
+    const baseDir = await makeTempDir();
+
+    // Script writes garbage to OPENCLAW_RESULT_FILE but valid result to stdout
+    const script = [
+      "const fs = require('node:fs');",
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      "  const resultFile = process.env.OPENCLAW_RESULT_FILE;",
+      "  fs.writeFileSync(resultFile, 'this is not valid json!!!');",
+      '  process.stdout.write(JSON.stringify({result:"noop"}));',
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-invalid-result-file",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(0);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(true);
+    expect(latest?.scriptResult).toEqual({ result: "noop" });
+  });
+
+  it("cleans up OPENCLAW_RESULT_FILE after reading", async () => {
+    const baseDir = await makeTempDir();
+
+    const script = [
+      "const fs = require('node:fs');",
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      "  const resultFile = process.env.OPENCLAW_RESULT_FILE;",
+      '  fs.writeFileSync(resultFile, JSON.stringify({result:"noop"}));',
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-cleanup",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    await runCommand(wrapped.command);
+
+    // The result file should have been cleaned up by the runner
+    const runsDir = wrapped.paths.runsDir;
+    const files = await fs.readdir(runsDir);
+    const resultFiles = files.filter((f) => f.startsWith("result-"));
+    expect(resultFiles).toHaveLength(0);
+  });
+
+  it("prefers OPENCLAW_RESULT_FILE over stdout when both have valid results", async () => {
+    const baseDir = await makeTempDir();
+
+    // Script writes different results to both file and stdout
+    const script = [
+      "const fs = require('node:fs');",
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      "  const resultFile = process.env.OPENCLAW_RESULT_FILE;",
+      '  fs.writeFileSync(resultFile, JSON.stringify({result:"prompt",text:"from file"}));',
+      '  process.stdout.write(JSON.stringify({result:"prompt",text:"from stdout"}));',
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-file-priority",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(0);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(true);
+    // File result should take priority
+    expect(latest?.scriptResult).toEqual({ result: "prompt", text: "from file" });
+  });
+
+  it("injects OPENCLAW_RESULT_FILE env var into script environment", async () => {
+    const baseDir = await makeTempDir();
+    const envDump = path.join(baseDir, "env.txt");
+
+    const script = [
+      "const fs = require('node:fs');",
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      `  fs.writeFileSync(${JSON.stringify(envDump)}, process.env.OPENCLAW_RESULT_FILE || '');`,
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      job: {
+        id: "job-env-check",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    await runCommand(wrapped.command);
+
+    const envValue = await fs.readFile(envDump, "utf8");
+    expect(envValue).toBeTruthy();
+    expect(envValue).toContain("result-");
+    expect(envValue.endsWith(".json")).toBe(true);
+  });
+
   it("rejects old failure result type from stdout", async () => {
     const baseDir = await makeTempDir();
 

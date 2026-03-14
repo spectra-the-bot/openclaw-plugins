@@ -19,7 +19,28 @@ export interface NativeSchedulerRunContext {
   config: Record<string, unknown>;
 }
 
-// ── Output: parsed from script stdout ─────────────────────────────────
+// ── Environment variables ─────────────────────────────────────────────
+
+/**
+ * Environment variables injected by the native-scheduler wrapper into
+ * the script subprocess.
+ *
+ * - `OPENCLAW_RESULT_FILE` — Path to a run-specific temporary JSON file.
+ *   Scripts can write their `NativeSchedulerResult` JSON to this file
+ *   instead of (or in addition to) stdout. The runner reads the file
+ *   first; if it exists and contains valid JSON, that result takes
+ *   priority over stdout. This allows scripts to freely use stdout for
+ *   debug/log output without breaking result delivery.
+ *
+ *   The runner cleans up the file after reading. If the file is absent,
+ *   empty, or contains invalid JSON, the runner falls back to parsing
+ *   stdout (backward compatible).
+ */
+export const NATIVE_SCHEDULER_ENV_VARS = ["OPENCLAW_RESULT_FILE"] as const;
+
+export type NativeSchedulerEnvVar = (typeof NATIVE_SCHEDULER_ENV_VARS)[number];
+
+// ── Output: parsed from script stdout or OPENCLAW_RESULT_FILE ─────────
 
 export type NativeSchedulerNoopResult = { result: "noop" };
 export type NativeSchedulerPromptResult = {
