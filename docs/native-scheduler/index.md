@@ -22,6 +22,7 @@ OpenClaw's built-in cron system runs tasks through the agent loop, consuming LLM
 - **Health tracking**: Per-job health files with success/failure counts, streaks, and timestamps
 - **Failure callbacks**: Configurable actions on script crash or timeout (run a command or fire an OpenClaw event)
 - **12 tool actions**: Full lifecycle management from the agent
+- **Agent skill**: Ships a `SKILL.md` that surfaces when-to-use guidance and common patterns to AI agents via OpenClaw's skill system — loaded automatically when the plugin is enabled
 
 ## Next steps
 

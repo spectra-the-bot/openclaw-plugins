@@ -9,7 +9,7 @@
 ## Installing native-scheduler
 
 ```bash
-openclaw plugin install @spectratools/native-scheduler
+openclaw plugins install @spectratools/native-scheduler
 ```
 
 Configure in `openclaw.json`:
@@ -34,7 +34,7 @@ Configure in `openclaw.json`:
 ## Installing sentinel
 
 ```bash
-openclaw plugin install @spectratools/sentinel
+openclaw plugins install @spectratools/sentinel
 ```
 
 Configure in `openclaw.json`:
