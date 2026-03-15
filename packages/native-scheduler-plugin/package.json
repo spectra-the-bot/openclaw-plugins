@@ -1,6 +1,6 @@
 {
   "name": "@spectratools/native-scheduler",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Cross-platform native scheduler plugin for OpenClaw",
   "keywords": [
     "cron",

@@ -1,5 +1,11 @@
 # @spectratools/native-scheduler
 
+## 1.2.0
+
+### Minor Changes
+
+- [#44](https://github.com/spectra-the-bot/openclaw-plugins/pull/44) [`69efbfe`](https://github.com/spectra-the-bot/openclaw-plugins/commit/69efbfe0b68272769dfa23d5af4c7fd4c6814cf6) Thanks [@spectra-the-bot](https://github.com/spectra-the-bot)! - Use gateway HTTP API for session-targeted prompt delivery instead of non-existent `--session` CLI flag.
+
 ## 1.1.1
 
 ### Patch Changes
