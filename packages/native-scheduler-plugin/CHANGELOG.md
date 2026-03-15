@@ -1,5 +1,11 @@
 # @spectratools/native-scheduler
 
+## 1.3.0
+
+### Minor Changes
+
+- [#46](https://github.com/spectra-the-bot/openclaw-plugins/pull/46) [`6f0a593`](https://github.com/spectra-the-bot/openclaw-plugins/commit/6f0a59330c2df4c7743c5e07e6a24b40c7cf7757) Thanks [@spectra-the-bot](https://github.com/spectra-the-bot)! - Fix session-targeted prompt delivery: use plugin HTTP route + subagent.run() instead of non-existent gateway /api/v1/sessions/send endpoint.
+
 ## 1.2.0
 
 ### Minor Changes
