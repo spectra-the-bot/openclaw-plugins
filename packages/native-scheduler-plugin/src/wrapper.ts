@@ -277,14 +277,15 @@ async function triggerFailureCallback(config, run) {
 
 async function deliverPromptResultOnce(scriptResult, config) {
   if (scriptResult.session && config.deliverPort) {
-    // Use HTTP API for session-targeted delivery — same gateway as message delivery.
-    const payload = JSON.stringify({ sessionKey: scriptResult.session, message: scriptResult.text });
+    // Use the plugin's own HTTP deliver-prompt endpoint which calls
+    // subagent.run() inside the gateway — not the non-existent /api/v1/sessions/send.
+    const payload = JSON.stringify({ text: scriptResult.text, sessionKey: scriptResult.session });
     return new Promise((resolve, reject) => {
       const req = http.request(
         {
           hostname: "127.0.0.1",
           port: config.deliverPort,
-          path: "/api/v1/sessions/send",
+          path: "/native-scheduler/deliver-prompt",
           method: "POST",
           headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) },
         },
@@ -295,13 +296,13 @@ async function deliverPromptResultOnce(scriptResult, config) {
             if (res.statusCode >= 200 && res.statusCode < 300) {
               resolve({ delivered: true });
             } else {
-              reject(new Error("sessions/send responded with status " + String(res.statusCode) + ": " + body));
+              reject(new Error("deliver-prompt responded with status " + String(res.statusCode) + ": " + body));
             }
           });
         },
       );
       req.on("error", (err) => {
-        reject(new Error("sessions/send request failed: " + String(err.message ?? err)));
+        reject(new Error("deliver-prompt request failed: " + String(err.message ?? err)));
       });
       req.write(payload);
       req.end();

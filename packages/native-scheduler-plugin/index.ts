@@ -107,6 +107,51 @@ export default function register(api: OpenClawPluginApi) {
       }
     },
   });
+
+  // Register HTTP route for session-targeted prompt delivery from the wrapper.
+  // The wrapper POSTs { text, sessionKey } here when a script emits
+  // { result: "prompt", session: "agent:..." }. This injects the prompt into
+  // the target session via subagent.run() — no CLI shelling out needed.
+  api.registerHttpRoute({
+    path: "/native-scheduler/deliver-prompt",
+    auth: "plugin",
+    match: "exact",
+    handler: async (req: IncomingMessage, res: ServerResponse) => {
+      if (req.method !== "POST") {
+        res.writeHead(405);
+        res.end(JSON.stringify({ error: "method not allowed" }));
+        return;
+      }
+
+      try {
+        const { text, sessionKey } = JSON.parse(await readBody(req)) as {
+          text?: string;
+          sessionKey?: string;
+        };
+
+        if (!text || !sessionKey) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: "text and sessionKey are required" }));
+          return;
+        }
+
+        await api.runtime.subagent.run({ sessionKey, message: text });
+
+        res.writeHead(200);
+        res.end(JSON.stringify({ ok: true, sessionKey }));
+      } catch (error) {
+        api.logger.error?.(
+          `[native-scheduler] prompt delivery error: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        res.writeHead(500);
+        res.end(
+          JSON.stringify({
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      }
+    },
+  });
 }
 
 function readBody(req: IncomingMessage): Promise<string> {

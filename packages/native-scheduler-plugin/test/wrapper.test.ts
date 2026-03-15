@@ -789,11 +789,11 @@ describe("wrapper runner", () => {
       });
       expect(latest?.promptDelivery).toEqual({ delivered: true });
 
-      // Verify the HTTP request hit the correct endpoint with the right payload
-      expect(receivedPath).toBe("/api/v1/sessions/send");
+      // Verify the HTTP request hit the plugin's deliver-prompt endpoint
+      expect(receivedPath).toBe("/native-scheduler/deliver-prompt");
       const parsed = JSON.parse(receivedBody);
       expect(parsed.sessionKey).toBe("agent:forge:abc");
-      expect(parsed.message).toBe("session alert");
+      expect(parsed.text).toBe("session alert");
     } finally {
       server.close();
     }
