@@ -275,13 +275,42 @@ async function triggerFailureCallback(config, run) {
   return result;
 }
 
-async function deliverPromptResultOnce(scriptResult) {
-  const args = ["system", "event", "--mode", "now", "--text", scriptResult.text];
-  if (scriptResult.session) {
-    args.push("--session", scriptResult.session);
+async function deliverPromptResultOnce(scriptResult, config) {
+  if (scriptResult.session && config.deliverPort) {
+    // Use HTTP API for session-targeted delivery — same gateway as message delivery.
+    const payload = JSON.stringify({ sessionKey: scriptResult.session, message: scriptResult.text });
+    return new Promise((resolve, reject) => {
+      const req = http.request(
+        {
+          hostname: "127.0.0.1",
+          port: config.deliverPort,
+          path: "/api/v1/sessions/send",
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) },
+        },
+        (res) => {
+          let body = "";
+          res.on("data", (chunk) => { body += chunk; });
+          res.on("end", () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              resolve({ delivered: true });
+            } else {
+              reject(new Error("sessions/send responded with status " + String(res.statusCode) + ": " + body));
+            }
+          });
+        },
+      );
+      req.on("error", (err) => {
+        reject(new Error("sessions/send request failed: " + String(err.message ?? err)));
+      });
+      req.write(payload);
+      req.end();
+    });
   }
+  // Fallback: global system event via CLI (no session targeting).
   // 8s timeout: delivery is best-effort; a slow/unreachable gateway should not
   // block the wrapper from completing and writing status files.
+  const args = ["system", "event", "--mode", "now", "--text", scriptResult.text];
   const result = await runCommand(["openclaw", ...args], { stdio: "ignore", timeoutMs: 8_000 });
   if (result.code !== 0) {
     throw new Error("openclaw event exited with code " + String(result.code));
@@ -289,9 +318,9 @@ async function deliverPromptResultOnce(scriptResult) {
   return { delivered: true };
 }
 
-async function deliverPromptResult(scriptResult) {
+async function deliverPromptResult(scriptResult, config) {
   const result = await retryWithBackoff(
-    () => deliverPromptResultOnce(scriptResult),
+    () => deliverPromptResultOnce(scriptResult, config),
     { maxAttempts: 3, baseMs: 500, factor: 3 },
   );
   if (result && result.__retryExhausted) {
@@ -439,7 +468,7 @@ async function main() {
   // Deliver results based on type
   if (scriptResult) {
     if (scriptResult.result === "prompt") {
-      const delivery = await deliverPromptResult(scriptResult);
+      const delivery = await deliverPromptResult(scriptResult, config);
       run.promptDelivery = delivery;
     } else if (scriptResult.result === "message") {
       const delivery = await deliverMessageResult(scriptResult, config);
