@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -731,4 +732,161 @@ describe("wrapper runner", () => {
     expect(latest?.success).toBe(true); // exit 0, old failure format is not recognized
     expect(latest?.scriptResult).toBeUndefined(); // rejected
   });
+
+  it("delivers prompt with session via HTTP when deliverPort is set", async () => {
+    const baseDir = await makeTempDir();
+
+    // Spin up a mock HTTP server to capture the request
+    let receivedBody = "";
+    let receivedPath = "";
+    const server = http.createServer((req, res) => {
+      receivedPath = req.url ?? "";
+      let body = "";
+      req.on("data", (chunk: Buffer) => {
+        body += chunk.toString();
+      });
+      req.on("end", () => {
+        receivedBody = body;
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true }));
+      });
+    });
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    const port = (server.address() as { port: number }).port;
+
+    try {
+      const script = [
+        "let d='';",
+        "process.stdin.on('data',c=>d+=c);",
+        "process.stdin.on('end',()=>{",
+        '  process.stdout.write(JSON.stringify({result:"prompt",text:"session alert",session:"agent:forge:abc"}));',
+        "  process.exit(0);",
+        "});",
+      ].join("");
+
+      const wrapped = await materializeWrapperJob({
+        namespace: "dev.ns",
+        dataDir: baseDir,
+        deliverPort: port,
+        job: {
+          id: "job-prompt-session-http",
+          command: [process.execPath, "-e", script],
+        },
+      });
+
+      const { code } = await runCommand(wrapped.command);
+      expect(code).toBe(0);
+
+      const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+      expect(latest?.success).toBe(true);
+      expect(latest?.scriptResult).toEqual({
+        result: "prompt",
+        text: "session alert",
+        session: "agent:forge:abc",
+      });
+      expect(latest?.promptDelivery).toEqual({ delivered: true });
+
+      // Verify the HTTP request hit the correct endpoint with the right payload
+      expect(receivedPath).toBe("/api/v1/sessions/send");
+      const parsed = JSON.parse(receivedBody);
+      expect(parsed.sessionKey).toBe("agent:forge:abc");
+      expect(parsed.message).toBe("session alert");
+    } finally {
+      server.close();
+    }
+  });
+
+  it("falls back to CLI for prompt with session when no deliverPort", async () => {
+    const baseDir = await makeTempDir();
+
+    const script = [
+      "let d='';",
+      "process.stdin.on('data',c=>d+=c);",
+      "process.stdin.on('end',()=>{",
+      '  process.stdout.write(JSON.stringify({result:"prompt",text:"session alert",session:"agent:main"}));',
+      "  process.exit(0);",
+      "});",
+    ].join("");
+
+    const wrapped = await materializeWrapperJob({
+      namespace: "dev.ns",
+      dataDir: baseDir,
+      // No deliverPort — should fall back to CLI
+      job: {
+        id: "job-prompt-session-no-port",
+        command: [process.execPath, "-e", script],
+      },
+    });
+
+    const { code } = await runCommand(wrapped.command);
+    expect(code).toBe(0);
+
+    const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+    expect(latest?.success).toBe(true);
+    expect(latest?.scriptResult).toEqual({
+      result: "prompt",
+      text: "session alert",
+      session: "agent:main",
+    });
+    // CLI path is used — delivery result depends on whether openclaw binary is available.
+    // The critical assertion is that it doesn't crash and promptDelivery is recorded.
+    expect(latest?.promptDelivery).toBeDefined();
+  }, 30_000);
+
+  it("uses CLI for prompt without session even when deliverPort is set", async () => {
+    const baseDir = await makeTempDir();
+
+    // Mock server — should NOT receive any requests
+    let requestCount = 0;
+    const server = http.createServer((_req, res) => {
+      requestCount++;
+      res.writeHead(200);
+      res.end();
+    });
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    const port = (server.address() as { port: number }).port;
+
+    try {
+      const script = [
+        "let d='';",
+        "process.stdin.on('data',c=>d+=c);",
+        "process.stdin.on('end',()=>{",
+        '  process.stdout.write(JSON.stringify({result:"prompt",text:"no session here"}));',
+        "  process.exit(0);",
+        "});",
+      ].join("");
+
+      const wrapped = await materializeWrapperJob({
+        namespace: "dev.ns",
+        dataDir: baseDir,
+        deliverPort: port,
+        job: {
+          id: "job-prompt-no-session",
+          command: [process.execPath, "-e", script],
+        },
+      });
+
+      const { code } = await runCommand(wrapped.command);
+      expect(code).toBe(0);
+
+      const latest = await readJsonIfExists<Record<string, unknown>>(wrapped.paths.latestPath);
+      expect(latest?.success).toBe(true);
+      expect(latest?.scriptResult).toEqual({ result: "prompt", text: "no session here" });
+
+      // HTTP server should NOT have been contacted — CLI path used instead
+      expect(requestCount).toBe(0);
+
+      // CLI path is used — delivery result depends on whether openclaw binary is available.
+      // The critical assertion is that it doesn't crash and promptDelivery is recorded.
+      expect(latest?.promptDelivery).toBeDefined();
+    } finally {
+      server.close();
+    }
+  }, 30_000);
 });
