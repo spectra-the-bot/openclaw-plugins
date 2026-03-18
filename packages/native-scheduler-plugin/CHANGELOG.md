@@ -1,5 +1,27 @@
 # @spectratools/native-scheduler
 
+## 1.3.1
+
+### Patch Changes
+
+- [#48](https://github.com/spectra-the-bot/openclaw-plugins/pull/48) [`f374904`](https://github.com/spectra-the-bot/openclaw-plugins/commit/f374904d82b0e6369bbd1f781bff37789dd38382) Thanks [@spectra-the-bot](https://github.com/spectra-the-bot)! - Fix `getDisabledMap()` regex for `launchctl print-disabled` output on macOS 12+
+
+  The previous regex (`"([^"]+)"\s*=\s*(true|false);`) never matched the actual
+  `launchctl print-disabled gui/<uid>` output, which uses the format:
+
+  ```
+  "dev.openclaw.native-scheduler.foo" => enabled
+  "dev.openclaw.native-scheduler.bar" => disabled
+  ```
+
+  As a result, `getDisabledMap()` always returned `{}`, causing `summarize()` to
+  always report `disabled: false` regardless of actual launchd state. This meant
+  `native_scheduler list` and `native_scheduler get` showed every job as enabled
+  even when disabled.
+
+  Updated regex to `"([^"]+)"\s*=>\s*(enabled|disabled)` with value mapping
+  `match[2] === "disabled"` to correctly reflect the launchd override database.
+
 ## 1.3.0
 
 ### Minor Changes
