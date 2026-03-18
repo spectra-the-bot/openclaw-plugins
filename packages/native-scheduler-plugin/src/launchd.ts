@@ -325,9 +325,9 @@ export function createLaunchdAdapter(options: LaunchdAdapterOptions) {
 
     const map: Record<string, boolean> = {};
     for (const line of result.stdout.split(/\r?\n/)) {
-      const match = line.match(/"([^"]+)"\s*=\s*(true|false);/);
+      const match = line.match(/"([^"]+)"\s*=>\s*(enabled|disabled)/);
       if (!match) continue;
-      map[match[1]!] = match[2] === "true";
+      map[match[1]!] = match[2] === "disabled"; // map tracks disabled=true
     }
     return map;
   }
