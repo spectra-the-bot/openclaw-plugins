@@ -103,7 +103,7 @@ describeOnMac("createLaunchdAdapter", () => {
         return { code: 0, stdout: "service = running", stderr: "" };
       }
       if (args[0] === "print-disabled") {
-        return { code: 0, stdout: '"dev.ns.job-one" = false;', stderr: "" };
+        return { code: 0, stdout: '"dev.ns.job-one" => enabled', stderr: "" };
       }
       if (args[0] === "bootout") {
         return { code: 0, stdout: "", stderr: "" };
