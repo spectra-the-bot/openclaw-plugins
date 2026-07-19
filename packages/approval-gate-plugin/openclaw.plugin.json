@@ -2,7 +2,7 @@
   "id": "approval-gate",
   "name": "Approval Gate",
   "description": "Declarative critical approval gates for exact OpenClaw tool and agent matches.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -61,7 +61,9 @@
                   },
                   "allowedValues": {
                     "type": "array",
-                    "items": { "type": "string" },
+                    "items": {
+                      "type": "string"
+                    },
                     "default": [],
                     "description": "Exact accepted strings for an allowlist check."
                   }
