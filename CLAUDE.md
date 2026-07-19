@@ -4,8 +4,6 @@
 
 `openclaw-plugins` is a monorepo containing OpenClaw plugin packages:
 
-- **native-scheduler-plugin** (`@spectratools/native-scheduler`) — cross-platform native OS scheduler (launchd, systemd, schtasks)
-- **native-scheduler-types** (`@spectratools/native-scheduler-types`) — shared TypeScript types for the scheduler
 - **sentinel-plugin** (`@spectratools/sentinel`) — declarative gateway-native watcher system
 
 **Repository:** https://github.com/spectra-the-bot/openclaw-plugins
@@ -24,8 +22,6 @@
 ```
 openclaw-plugins/
 ├── packages/
-│   ├── native-scheduler-plugin/   → @spectratools/native-scheduler
-│   ├── native-scheduler-types/    → @spectratools/native-scheduler-types
 │   └── sentinel-plugin/           → @spectratools/sentinel
 ├── .changeset/                    → Changesets config
 ├── .github/workflows/

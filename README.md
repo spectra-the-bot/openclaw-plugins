@@ -7,9 +7,7 @@ A pnpm monorepo of [OpenClaw](https://openclaw.dev) plugins maintained by [@spec
 | Package | Version | Description |
 |---|---|---|
 | [`@spectratools/approval-gate`](packages/approval-gate-plugin/) | `0.1.0` | Declarative critical approval gates for exact tool and agent matches |
-| [`@spectratools/native-scheduler`](packages/native-scheduler-plugin/) | `0.1.1` | macOS launchd scheduler plugin for OpenClaw |
-| [`@spectratools/native-scheduler-types`](packages/native-scheduler-types/) | `0.1.0` | Script I/O contract types for native-scheduler |
-| [`@spectratools/sentinel`](packages/sentinel-plugin/) | `0.9.1` | Declarative HTTP/WS/SSE/EVM watcher plugin for OpenClaw |
+| [`@spectratools/sentinel`](packages/sentinel-plugin/) | `1.0.2` | Declarative HTTP/WS/SSE/EVM watcher plugin for OpenClaw |
 
 ## approval-gate
 
@@ -20,20 +18,6 @@ allow-once/deny only, and fail closed on timeout.
 
 → [Package README](packages/approval-gate-plugin/README.md)
 
-## native-scheduler
-
-Cross-platform native OS scheduler plugin that offloads deterministic background work from OpenClaw's built-in cron by scheduling scripts via the platform-native scheduler. Scripts run independently of the gateway process — if the gateway restarts, scheduled jobs keep firing.
-
-Currently fully supported on macOS via launchd, with Linux (systemd/cron) and Windows (Task Scheduler) planned.
-
-→ [Package README](packages/native-scheduler-plugin/README.md)
-
-## native-scheduler-types
-
-TypeScript type definitions for the native-scheduler script I/O contract. Defines `NativeSchedulerRunContext` (stdin input) and `NativeSchedulerResult` (stdout output) so scripts can be authored with full type safety.
-
-→ [Package README](packages/native-scheduler-types/)
-
 ## sentinel
 
 Declarative gateway-native watcher plugin for OpenClaw. Define watchers that poll HTTP endpoints, listen to WebSocket streams, consume SSE feeds, or read EVM contract state — and fire callbacks to isolated agent sessions when conditions are met.
@@ -42,7 +26,7 @@ Declarative gateway-native watcher plugin for OpenClaw. Define watchers that pol
 
 ## Agent Skills
 
-Both plugins ship `SKILL.md` files that surface usage guidance to AI agents via OpenClaw's skill system. When a plugin is enabled, its skill is automatically loaded into the agent's available skills, providing structured instructions for tool usage, configuration, and best practices.
+Each plugin ships a `SKILL.md` file that surfaces usage guidance to AI agents via OpenClaw's skill system. When a plugin is enabled, its skill is automatically loaded into the agent's available skills, providing structured instructions for tool usage, configuration, and best practices.
 
 ## Development
 

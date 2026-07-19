@@ -3,7 +3,7 @@ import { mermaidPlugin } from "./mermaid-plugin";
 
 export default defineConfig({
   title: "openclaw-plugins",
-  description: "approval-gate, native-scheduler, and sentinel plugins for OpenClaw",
+  description: "approval-gate and sentinel plugins for OpenClaw",
   base: "/",
   markdown: {
     config: (md) => {
@@ -14,7 +14,6 @@ export default defineConfig({
     nav: [
       { text: "Guide", link: "/guide/getting-started" },
       { text: "approval-gate", link: "/approval-gate/" },
-      { text: "native-scheduler", link: "/native-scheduler/" },
       { text: "sentinel", link: "/sentinel/" },
       {
         text: "GitHub",
@@ -24,19 +23,6 @@ export default defineConfig({
     sidebar: {
       "/guide/": [{ text: "Getting Started", link: "/guide/getting-started" }],
       "/approval-gate/": [{ text: "Overview", link: "/approval-gate/" }],
-      "/native-scheduler/": [
-        { text: "Overview", link: "/native-scheduler/" },
-        {
-          text: "Script Contract",
-          link: "/native-scheduler/script-contract",
-        },
-        { text: "Tool Actions", link: "/native-scheduler/tool-actions" },
-        { text: "Examples", link: "/native-scheduler/examples" },
-        {
-          text: "Platform Support",
-          link: "/native-scheduler/platform-support",
-        },
-      ],
       "/sentinel/": [
         { text: "Overview", link: "/sentinel/" },
         { text: "Quick Start", link: "/sentinel/quick-start" },

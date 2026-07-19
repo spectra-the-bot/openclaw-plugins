@@ -15,11 +15,7 @@ import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "..");
 
-const PLUGIN_DIRS = [
-  "packages/approval-gate-plugin",
-  "packages/native-scheduler-plugin",
-  "packages/sentinel-plugin",
-];
+const PLUGIN_DIRS = ["packages/approval-gate-plugin", "packages/sentinel-plugin"];
 
 let synced = 0;
 
