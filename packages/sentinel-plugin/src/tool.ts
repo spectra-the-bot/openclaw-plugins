@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import type { AnyAgentTool } from "openclaw/plugin-sdk";
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult } from "openclaw/plugin-sdk/core";
 import { TemplateValueSchema } from "./templateValueSchema.js";
 import { SentinelToolSchema, SentinelToolValidationSchema } from "./toolSchema.js";
 import {

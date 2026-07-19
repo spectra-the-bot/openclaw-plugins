@@ -3,8 +3,13 @@
 ## Supported / tested
 
 - Built and tested against the OpenClaw Plugin SDK pinned in this repo's
-  `pnpm-lock.yaml` (`openclaw@2026.3.11`).
-- `package.json` declares `peerDependencies.openclaw: ">=2026.3.2"`.
+  `pnpm-lock.yaml` (`openclaw@2026.7.1`).
+- `package.json` declares `peerDependencies.openclaw: ">=2026.7.1"`.
+
+> Note: the npm `latest` dist-tag currently resolves to the older prerelease
+> `2026.7.1-2`, which predates the finalized 2026.7.1 outbound/`core` API. The
+> dev dependency is therefore pinned to the exact `2026.7.1` release that the
+> runtime ships.
 
 ## Why sentinel is not superseded by native cron
 
@@ -30,23 +35,29 @@ Sentinel provides capabilities cron event triggers do **not**:
 
 Conclusion: sentinel is retained.
 
-## Known incompatibilities with OpenClaw ≥ 2026.7.x (follow-up)
+## OpenClaw 2026.7.x Plugin SDK migration (applied)
 
-Typechecking sentinel against `openclaw@2026.7.1` surfaces two breaking Plugin
-SDK changes. These require a live-gateway-validated migration and are tracked
-as follow-up (not applied here, to keep this change bounded and the repo green
-on its supported SDK):
+Two breaking Plugin SDK changes landed in the 2026.7.x line. Both are now
+migrated in-tree and validated by typecheck and the unit suite against
+`openclaw@2026.7.1`:
 
-1. **`jsonResult` moved out of the `openclaw/plugin-sdk` barrel.** In 2026.7.x
-   it is exported from `openclaw/plugin-sdk/core` (also `/tool-results`,
-   `/channel-actions`). `src/tool.ts` and `src/actionTools.ts` import it from
-   the barrel.
-2. **`runtime.channel` per-channel senders removed.** 2026.3.x exposed
-   `api.runtime.channel.<channel>.sendMessage<Channel>(...)`; 2026.7.x replaces
-   that with adapter-based outbound (`runtime.channel.outbound.loadAdapter`,
-   `openclaw/plugin-sdk/channel-outbound`). `src/index.ts` and
-   `src/actionTools.ts` use the removed per-channel senders for zero-token
-   delivery.
+1. **`jsonResult` moved out of the `openclaw/plugin-sdk` barrel.** It is now
+   exported from `openclaw/plugin-sdk/core` (also re-exported from
+   `/tool-results` and `/channel-actions`). `src/tool.ts` and
+   `src/actionTools.ts` import it from `openclaw/plugin-sdk/core`. The value
+   type helpers (`AnyAgentTool`, `OpenClawPluginApi`,
+   `OpenClawPluginConfigSchema`, `ChannelId`) remain on the barrel.
+2. **`runtime.channel` per-channel senders removed.** The old
+   `api.runtime.channel.<channel>.sendMessage<Channel>(...)` surface is gone;
+   2026.7.x exposes adapter-based outbound via
+   `api.runtime.channel.outbound.loadAdapter(channel)`, whose
+   `ChannelOutboundAdapter.sendText({ cfg, to, text, accountId? })` performs
+   the zero-token delivery. `src/index.ts` and `src/actionTools.ts` now load
+   the channel outbound adapter and call `sendText`, mirroring the pattern used
+   by OpenClaw core (`dist/notify-*.js`, device-pair notifications). When a
+   channel adapter is not loaded, `loadAdapter` returns `undefined` and the
+   delivery is treated as a failed target, preserving prior error handling.
 
-Migrating requires bumping the pinned SDK, reworking delivery onto the outbound
-adapter API, and validating against a running 2026.7.x gateway.
+No Sentinel behavior or security/network restrictions changed: watcher
+strategies, `allowedHosts`, redirect/IP guards, and the relay callback contract
+are untouched.
