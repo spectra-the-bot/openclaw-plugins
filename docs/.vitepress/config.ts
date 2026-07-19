@@ -3,7 +3,7 @@ import { mermaidPlugin } from "./mermaid-plugin";
 
 export default defineConfig({
   title: "openclaw-plugins",
-  description: "native-scheduler and sentinel plugins for OpenClaw",
+  description: "approval-gate, native-scheduler, and sentinel plugins for OpenClaw",
   base: "/",
   markdown: {
     config: (md) => {
@@ -13,6 +13,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: "Guide", link: "/guide/getting-started" },
+      { text: "approval-gate", link: "/approval-gate/" },
       { text: "native-scheduler", link: "/native-scheduler/" },
       { text: "sentinel", link: "/sentinel/" },
       {
@@ -22,6 +23,7 @@ export default defineConfig({
     ],
     sidebar: {
       "/guide/": [{ text: "Getting Started", link: "/guide/getting-started" }],
+      "/approval-gate/": [{ text: "Overview", link: "/approval-gate/" }],
       "/native-scheduler/": [
         { text: "Overview", link: "/native-scheduler/" },
         {

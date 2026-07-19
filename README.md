@@ -6,9 +6,19 @@ A pnpm monorepo of [OpenClaw](https://openclaw.dev) plugins maintained by [@spec
 
 | Package | Version | Description |
 |---|---|---|
+| [`@spectratools/approval-gate`](packages/approval-gate-plugin/) | `0.1.0` | Declarative critical approval gates for exact tool and agent matches |
 | [`@spectratools/native-scheduler`](packages/native-scheduler-plugin/) | `0.1.1` | macOS launchd scheduler plugin for OpenClaw |
 | [`@spectratools/native-scheduler-types`](packages/native-scheduler-types/) | `0.1.0` | Script I/O contract types for native-scheduler |
 | [`@spectratools/sentinel`](packages/sentinel-plugin/) | `0.9.1` | Declarative HTTP/WS/SSE/EVM watcher plugin for OpenClaw |
+
+## approval-gate
+
+General-purpose, human-in-the-loop gates for OpenClaw tool calls. Rules use exact agent-id and
+tool-name matching, can enforce present/UUID/allowlist parameter checks, and create bounded,
+explicitly configured summaries with optional redaction. Approvals are always critical,
+allow-once/deny only, and fail closed on timeout.
+
+→ [Package README](packages/approval-gate-plugin/README.md)
 
 ## native-scheduler
 

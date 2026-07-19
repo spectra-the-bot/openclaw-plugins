@@ -6,6 +6,15 @@
 - Node.js ≥ 22
 - pnpm (recommended) or npm
 
+## Installing approval-gate
+
+```bash
+openclaw plugins install @spectratools/approval-gate
+```
+
+Configure exact agent/tool rules under the `approval-gate` plugin entry. See the
+[approval-gate guide](/approval-gate/) for checks and summary redaction options.
+
 ## Installing native-scheduler
 
 ```bash

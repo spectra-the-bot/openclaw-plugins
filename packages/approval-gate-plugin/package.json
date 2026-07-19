@@ -1,0 +1,66 @@
+{
+  "name": "@spectratools/approval-gate",
+  "version": "0.1.0",
+  "description": "Declarative critical approval gates for exact OpenClaw tool and agent matches",
+  "keywords": [
+    "approval",
+    "openclaw",
+    "plugin",
+    "policy",
+    "security"
+  ],
+  "homepage": "https://plugins.spectratools.dev/approval-gate/",
+  "bugs": {
+    "url": "https://github.com/spectra-the-bot/openclaw-plugins/issues"
+  },
+  "license": "MIT",
+  "author": "spectra",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/spectra-the-bot/openclaw-plugins.git",
+    "directory": "packages/approval-gate-plugin"
+  },
+  "exports": {
+    ".": {
+      "import": "./index.ts",
+      "types": "./index.ts"
+    },
+    "./policy": {
+      "import": "./policy.ts",
+      "types": "./policy.ts"
+    }
+  },
+  "files": [
+    "index.ts",
+    "policy.ts",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "type": "module",
+  "scripts": {
+    "prepack": "node ../../scripts/check-plugin-manifest.mjs --package .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "openclaw": "latest",
+    "typescript": "^5.9.2",
+    "vitest": "^3.0.8"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.7.1"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "install": {
+      "npmSpec": "@spectratools/approval-gate",
+      "defaultChoice": "npm"
+    }
+  }
+}

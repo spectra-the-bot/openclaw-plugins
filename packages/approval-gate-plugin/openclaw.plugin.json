@@ -1,0 +1,110 @@
+{
+  "id": "approval-gate",
+  "name": "Approval Gate",
+  "description": "Declarative critical approval gates for exact OpenClaw tool and agent matches.",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "rules": {
+        "type": "array",
+        "description": "Declarative approval rules. Rules match exact tool names and exact agent ids.",
+        "default": [],
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["agentId", "toolName"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Optional identifier used in safe block messages."
+            },
+            "agentId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Agent id to match exactly (case-sensitive, no wildcards)."
+            },
+            "toolName": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "description": "Tool name to match exactly (case-sensitive, no wildcards)."
+            },
+            "approvalTitle": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Optional approval title. Defaults to 'Approve <toolName>'."
+            },
+            "checks": {
+              "type": "array",
+              "default": [],
+              "description": "Parameter checks that block before approval when they fail.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["parameter", "kind"],
+                "properties": {
+                  "parameter": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Top-level parameter or dot-separated own-property path."
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": ["present", "uuid", "allowlist"]
+                  },
+                  "allowedValues": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "default": [],
+                    "description": "Exact accepted strings for an allowlist check."
+                  }
+                }
+              }
+            },
+            "summaryFields": {
+              "type": "array",
+              "maxItems": 8,
+              "default": [],
+              "description": "Explicitly selected primitive parameters shown in the bounded approval summary.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["parameter", "redaction"],
+                "properties": {
+                  "parameter": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Top-level parameter or dot-separated own-property path."
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32
+                  },
+                  "redaction": {
+                    "type": "string",
+                    "enum": ["none", "last4", "suffix6"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "uiHints": {
+    "rules": {
+      "label": "Approval Rules",
+      "help": "Exact agent/tool rules with optional parameter checks and explicitly selected summary fields."
+    }
+  }
+}
