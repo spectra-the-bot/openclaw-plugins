@@ -20,25 +20,30 @@
     "url": "git+https://github.com/spectra-the-bot/openclaw-plugins.git",
     "directory": "packages/approval-gate-plugin"
   },
+  "main": "./dist/index.js",
   "exports": {
     ".": {
-      "import": "./index.ts",
+      "import": "./dist/index.js",
       "types": "./index.ts"
     },
     "./policy": {
-      "import": "./policy.ts",
+      "import": "./dist/policy.js",
       "types": "./policy.ts"
     }
   },
   "files": [
+    "dist",
     "index.ts",
     "policy.ts",
     "openclaw.plugin.json",
-    "README.md"
+    "README.md",
+    "tsconfig.build.json"
   ],
   "type": "module",
   "scripts": {
-    "prepack": "node ../../scripts/check-plugin-manifest.mjs --package .",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run clean && npm run build && node ../../scripts/check-plugin-manifest.mjs --package .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -56,7 +61,7 @@
   },
   "openclaw": {
     "extensions": [
-      "./index.ts"
+      "./dist/index.js"
     ],
     "install": {
       "npmSpec": "@spectratools/approval-gate",
