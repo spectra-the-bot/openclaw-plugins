@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
-import type { AnyAgentTool, OpenClawPluginApi } from "openclaw/plugin-sdk";
-import { jsonResult } from "openclaw/plugin-sdk";
+import type { AnyAgentTool, ChannelId, OpenClawPluginApi } from "openclaw/plugin-sdk";
+import { jsonResult } from "openclaw/plugin-sdk/core";
 import type { DeliveryTarget, SentinelConfig } from "./types.js";
 import type { WatcherManager } from "./watcherManager.js";
 
@@ -222,43 +222,18 @@ async function notifyDeliveryTarget(
   target: DeliveryTarget,
   message: string,
 ): Promise<void> {
-  switch (target.channel) {
-    case "telegram":
-      await api.runtime.channel.telegram.sendMessageTelegram(target.to, message, {
-        accountId: target.accountId,
-      });
-      return;
-    case "discord":
-      await api.runtime.channel.discord.sendMessageDiscord(target.to, message, {
-        accountId: target.accountId,
-      } as any);
-      return;
-    case "slack":
-      await api.runtime.channel.slack.sendMessageSlack(target.to, message, {
-        accountId: target.accountId,
-      } as any);
-      return;
-    case "signal":
-      await api.runtime.channel.signal.sendMessageSignal(target.to, message, {
-        accountId: target.accountId,
-      } as any);
-      return;
-    case "imessage":
-      await api.runtime.channel.imessage.sendMessageIMessage(target.to, message, {
-        accountId: target.accountId,
-      } as any);
-      return;
-    case "whatsapp":
-      await api.runtime.channel.whatsapp.sendMessageWhatsApp(target.to, message, {
-        accountId: target.accountId,
-      } as any);
-      return;
-    case "line":
-      await api.runtime.channel.line.sendMessageLine(target.to, message, {
-        accountId: target.accountId,
-      } as any);
-      return;
-    default:
-      throw new Error(`Unsupported delivery target channel: ${target.channel}`);
+  // OpenClaw 2026.7.x removed the per-channel `runtime.channel.<id>.sendMessage<Channel>`
+  // senders in favor of adapter-based outbound delivery. Load the channel's outbound
+  // adapter and use its zero-token `sendText` primitive.
+  const adapter = await api.runtime.channel.outbound.loadAdapter(target.channel as ChannelId);
+  const sendText = adapter?.sendText;
+  if (!sendText) {
+    throw new Error(`Unsupported delivery target channel: ${target.channel}`);
   }
+  await sendText({
+    cfg: api.config,
+    to: target.to,
+    text: message,
+    ...(target.accountId ? { accountId: target.accountId } : {}),
+  });
 }

@@ -1,9 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import { registerSentinelActionTools } from "../src/actionTools.js";
 
+function createOutboundChannel() {
+  // OpenClaw 2026.7.x adapter-based outbound delivery surface.
+  const sendText = vi.fn(async () => ({ channel: "telegram", messageId: "mock-msg-id" }));
+  const loadAdapter = vi.fn(async (_id: string) => ({ sendText }));
+  return { channel: { outbound: { loadAdapter } }, sendText };
+}
+
 function createMockApi(overrides: Record<string, unknown> = {}) {
+  const outbound = createOutboundChannel();
   return {
     registerTool: vi.fn(),
+    config: {},
     runtime: {
       system: {
         runCommandWithTimeout: vi.fn(async () => ({
@@ -16,16 +25,9 @@ function createMockApi(overrides: Record<string, unknown> = {}) {
           termination: "exit",
         })),
       },
-      channel: {
-        telegram: { sendMessageTelegram: vi.fn(async () => undefined) },
-        discord: { sendMessageDiscord: vi.fn(async () => undefined) },
-        slack: { sendMessageSlack: vi.fn(async () => undefined) },
-        signal: { sendMessageSignal: vi.fn(async () => undefined) },
-        imessage: { sendMessageIMessage: vi.fn(async () => undefined) },
-        whatsapp: { sendMessageWhatsApp: vi.fn(async () => undefined) },
-        line: { sendMessageLine: vi.fn(async () => undefined) },
-      },
+      channel: outbound.channel,
     },
+    _test: { sendText: outbound.sendText, loadAdapter: outbound.channel.outbound.loadAdapter },
     logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
     on: vi.fn(),
     ...overrides,
@@ -103,11 +105,12 @@ describe("sentinel action tools", () => {
       targets: [{ channel: "telegram", to: "5613673222" }],
     });
 
-    expect(api.runtime.channel.telegram.sendMessageTelegram).toHaveBeenCalledWith(
-      "5613673222",
-      "Alert: price threshold reached",
-      { accountId: undefined },
-    );
+    expect(api.runtime.channel.outbound.loadAdapter).toHaveBeenCalledWith("telegram");
+    expect(api._test.sendText).toHaveBeenCalledWith({
+      cfg: api.config,
+      to: "5613673222",
+      text: "Alert: price threshold reached",
+    });
     expect(result.content[0].text).toContain('"delivered": 1');
   });
 
@@ -151,15 +154,7 @@ describe("sentinel action tools", () => {
             throw new Error("Command not found: nonexistent");
           }),
         },
-        channel: {
-          telegram: { sendMessageTelegram: vi.fn(async () => undefined) },
-          discord: { sendMessageDiscord: vi.fn(async () => undefined) },
-          slack: { sendMessageSlack: vi.fn(async () => undefined) },
-          signal: { sendMessageSignal: vi.fn(async () => undefined) },
-          imessage: { sendMessageIMessage: vi.fn(async () => undefined) },
-          whatsapp: { sendMessageWhatsApp: vi.fn(async () => undefined) },
-          line: { sendMessageLine: vi.fn(async () => undefined) },
-        },
+        channel: createOutboundChannel().channel,
       },
     });
     const config = createMockConfig();

@@ -42,12 +42,12 @@
     "@types/node": "^24.0.0",
     "@types/ws": "^8.5.13",
     "ajv": "^8.17.1",
-    "openclaw": "latest",
+    "openclaw": "2026.7.1",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
   },
   "peerDependencies": {
-    "openclaw": ">=2026.3.2"
+    "openclaw": ">=2026.7.1"
   },
   "optionalDependencies": {
     "re2": "^1.23.3"

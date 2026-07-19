@@ -81,30 +81,28 @@ function createApiMocks() {
   const registerHttpRoute = vi.fn();
   const enqueueSystemEvent = vi.fn(() => true);
   const requestHeartbeatNow = vi.fn();
-  const sendMessageTelegram = vi.fn(async () => undefined);
+  // OpenClaw 2026.7.x adapter-based outbound delivery: loadAdapter(channel).sendText(...)
+  const sendText = vi.fn(async () => ({ channel: "telegram", messageId: "mock-msg-id" }));
+  const loadAdapter = vi.fn(async (_id: string) => ({ sendText }));
 
   return {
     hooks,
     registerHttpRoute,
     enqueueSystemEvent,
     requestHeartbeatNow,
-    sendMessageTelegram,
+    sendText,
+    loadAdapter,
     api: {
       registerTool: vi.fn(),
       registerHttpRoute,
+      config: {},
       on: vi.fn((name: string, handler: HookHandler) => {
         hooks.set(name, handler);
       }),
       runtime: {
         system: { enqueueSystemEvent, requestHeartbeatNow },
         channel: {
-          telegram: { sendMessageTelegram },
-          discord: { sendMessageDiscord: vi.fn(async () => undefined) },
-          slack: { sendMessageSlack: vi.fn(async () => undefined) },
-          signal: { sendMessageSignal: vi.fn(async () => undefined) },
-          imessage: { sendMessageIMessage: vi.fn(async () => undefined) },
-          whatsapp: { sendMessageWhatsApp: vi.fn(async () => undefined) },
-          line: { sendMessageLine: vi.fn(async () => undefined) },
+          outbound: { loadAdapter },
         },
       },
       logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
@@ -439,7 +437,7 @@ describe("sentinel webhook callback route", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     await vi.runAllTimersAsync();
 
-    expect(mocks.sendMessageTelegram).toHaveBeenCalledTimes(0);
+    expect(mocks.sendText).toHaveBeenCalledTimes(0);
   });
 
   it("uses callback deliveryContext as fallback relay target via timeout path", async () => {
@@ -490,8 +488,8 @@ describe("sentinel webhook callback route", () => {
     await vi.advanceTimersByTimeAsync(1000);
     await vi.runAllTimersAsync();
 
-    expect(mocks.sendMessageTelegram).toHaveBeenCalledTimes(1);
-    const [to] = mocks.sendMessageTelegram.mock.calls[0];
+    expect(mocks.sendText).toHaveBeenCalledTimes(1);
+    const to = mocks.sendText.mock.calls[0][0].to;
     expect(to).toBe("5613673222");
   });
 
@@ -535,13 +533,13 @@ describe("sentinel webhook callback route", () => {
       makeRes() as any,
     );
 
-    expect(mocks.sendMessageTelegram).toHaveBeenCalledTimes(0);
+    expect(mocks.sendText).toHaveBeenCalledTimes(0);
 
     await vi.advanceTimersByTimeAsync(1000);
     await vi.runAllTimersAsync();
 
-    expect(mocks.sendMessageTelegram).toHaveBeenCalledTimes(1);
-    const [, fallbackMessage] = mocks.sendMessageTelegram.mock.calls[0];
+    expect(mocks.sendText).toHaveBeenCalledTimes(1);
+    const fallbackMessage = mocks.sendText.mock.calls[0][0].text;
     expect(String(fallbackMessage)).toContain("Sentinel callback: price_alert");
   });
 
@@ -593,7 +591,7 @@ describe("sentinel webhook callback route", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     await vi.runAllTimersAsync();
 
-    expect(mocks.sendMessageTelegram).toHaveBeenCalledTimes(0);
+    expect(mocks.sendText).toHaveBeenCalledTimes(0);
     expect(JSON.parse(res2.body ?? "{}").relay).toMatchObject({
       attempted: 1,
       deduped: true,
