@@ -1,6 +1,6 @@
 {
   "name": "@spectratools/approval-gate",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Declarative critical approval gates for exact OpenClaw tool and agent matches",
   "keywords": [
     "approval",
