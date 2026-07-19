@@ -8,7 +8,7 @@
  * `openclaw.extensions` array.
  *
  * Usage:
- *   node scripts/check-plugin-manifest.mjs --package packages/native-scheduler-plugin
+ *   node scripts/check-plugin-manifest.mjs --package packages/sentinel-plugin
  *   node scripts/check-plugin-manifest.mjs --package .   (from inside a package dir)
  */
 

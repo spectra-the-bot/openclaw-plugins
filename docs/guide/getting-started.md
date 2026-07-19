@@ -15,31 +15,6 @@ openclaw plugins install @spectratools/approval-gate
 Configure exact agent/tool rules under the `approval-gate` plugin entry. See the
 [approval-gate guide](/approval-gate/) for checks and summary redaction options.
 
-## Installing native-scheduler
-
-```bash
-openclaw plugins install @spectratools/native-scheduler
-```
-
-Configure in `openclaw.json`:
-
-```json
-{
-  "plugins": {
-    "native-scheduler": {
-      "defaultBackend": "auto",
-      "namespace": "my-agent"
-    }
-  }
-}
-```
-
-| Option | Description | Default |
-|---|---|---|
-| `defaultBackend` | Scheduler backend: `auto`, `launchd`, `systemd`, `cron`, `windows-task-scheduler` | `auto` |
-| `namespace` | Prefix for managed job names | (plugin default) |
-| `dataDir` | Directory for wrapper state files (health, run history) | OS-appropriate default |
-
 ## Installing sentinel
 
 ```bash
@@ -60,21 +35,6 @@ Configure in `openclaw.json`:
 ```
 
 The `allowedHosts` array is required — no hosts are allowed by default as a security measure.
-
-## Minimal native-scheduler job
-
-Use the `native_scheduler` tool to create a job:
-
-```json
-{
-  "action": "upsert",
-  "job": {
-    "id": "hello",
-    "command": ["echo", "hello world"],
-    "startIntervalSeconds": 3600
-  }
-}
-```
 
 ## Minimal sentinel watcher
 
